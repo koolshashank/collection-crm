@@ -1,0 +1,299 @@
+{
+    "/dashboard": {
+        "ADMIN": true,
+        "COLLECTION-HEAD": true,
+        "COLLECTION-EXECUTIVE": true,
+        "VISITOR": true,
+        "ACCOUNTS": true,
+        "RECOVERY_HEAD": true,
+        "ACM": true
+    },
+    "/leads": {
+        "ADMIN": true,
+        "COLLECTION-HEAD": true,
+        "COLLECTION-EXECUTIVE": true,
+        "VISITOR": true,
+        "ACCOUNTS": true,
+        "RECOVERY_HEAD": true,
+        "ACM": true
+    },
+    "/assign-lead": {
+        "ADMIN": true,
+        "COLLECTION-HEAD": true,
+        "COLLECTION-EXECUTIVE": false,
+        "VISITOR": false,
+        "ACCOUNTS": false,
+        "RECOVERY_HEAD": false,
+        "ACM": true
+    },
+    "/collection": {
+        "ADMIN": true,
+        "COLLECTION-HEAD": true,
+        "COLLECTION-EXECUTIVE": false,
+        "VISITOR": false,
+        "ACCOUNTS": false,
+        "RECOVERY_HEAD": false,
+        "ACM": true
+    },
+    "/payments": {
+        "ADMIN": false,
+        "COLLECTION-HEAD": false,
+        "COLLECTION-EXECUTIVE": false,
+        "VISITOR": false,
+        "ACCOUNTS": false,
+        "RECOVERY_HEAD": false,
+        "ACM": false
+    },
+    "/payment-status": {
+        "ADMIN": false,
+        "COLLECTION-HEAD": false,
+        "COLLECTION-EXECUTIVE": false,
+        "VISITOR": false,
+        "ACCOUNTS": false,
+        "RECOVERY_HEAD": false,
+        "ACM": false
+    },
+    "/ptp": {
+        "ADMIN": false,
+        "COLLECTION-HEAD": true,
+        "COLLECTION-EXECUTIVE": true,
+        "VISITOR": false,
+        "ACCOUNTS": false,
+        "RECOVERY_HEAD": false,
+        "ACM": true
+    },
+    "/disposition": {
+        "ADMIN": true,
+        "COLLECTION-HEAD": true,
+        "COLLECTION-EXECUTIVE": true,
+        "VISITOR": false,
+        "ACCOUNTS": false,
+        "RECOVERY_HEAD": false,
+        "ACM": true
+    },
+    "/performance-report": {
+        "ADMIN": false,
+        "COLLECTION-HEAD": false,
+        "COLLECTION-EXECUTIVE": false,
+        "VISITOR": false,
+        "ACCOUNTS": false,
+        "RECOVERY_HEAD": false,
+        "ACM": false
+    },
+    "/team-performance": {
+        "ADMIN": false,
+        "COLLECTION-HEAD": false,
+        "COLLECTION-EXECUTIVE": false,
+        "VISITOR": false,
+        "ACCOUNTS": false,
+        "RECOVERY_HEAD": false,
+        "ACM": false
+    },
+    "/team-mapping": {
+        "ADMIN": true,
+        "COLLECTION-HEAD": false,
+        "COLLECTION-EXECUTIVE": false,
+        "VISITOR": false,
+        "ACCOUNTS": false,
+        "RECOVERY_HEAD": false,
+        "ACM": false
+    },
+    "/field-visit": {
+        "ADMIN": false,
+        "COLLECTION-HEAD": false,
+        "COLLECTION-EXECUTIVE": false,
+        "VISITOR": false,
+        "ACCOUNTS": false,
+        "RECOVERY_HEAD": false,
+        "ACM": false
+    },
+    "/field-tracking": {
+        "ADMIN": false,
+        "COLLECTION-HEAD": false,
+        "COLLECTION-EXECUTIVE": false,
+        "VISITOR": false,
+        "ACCOUNTS": false,
+        "RECOVERY_HEAD": false,
+        "ACM": false
+    },
+    "/reports": {
+        "ADMIN": false,
+        "COLLECTION-HEAD": false,
+        "COLLECTION-EXECUTIVE": false,
+        "VISITOR": false,
+        "ACCOUNTS": false,
+        "RECOVERY_HEAD": false,
+        "ACM": false
+    },
+    "/aum-report": {
+        "ADMIN": false,
+        "COLLECTION-HEAD": false,
+        "COLLECTION-EXECUTIVE": false,
+        "VISITOR": false,
+        "ACCOUNTS": false,
+        "RECOVERY_HEAD": false,
+        "ACM": false
+    },
+    "/aum-comprehensive": {
+        "ADMIN": false,
+        "COLLECTION-HEAD": false,
+        "COLLECTION-EXECUTIVE": false,
+        "VISITOR": false,
+        "ACCOUNTS": false,
+        "RECOVERY_HEAD": false,
+        "ACM": false
+    },
+    "/bucket-ageing": {
+        "ADMIN": false,
+        "COLLECTION-HEAD": false,
+        "COLLECTION-EXECUTIVE": false,
+        "VISITOR": false,
+        "ACCOUNTS": false,
+        "RECOVERY_HEAD": false,
+        "ACM": false
+    },
+    "/vintage-analysis": {
+        "ADMIN": false,
+        "COLLECTION-HEAD": false,
+        "COLLECTION-EXECUTIVE": false,
+        "VISITOR": false,
+        "ACCOUNTS": false,
+        "RECOVERY_HEAD": false,
+        "ACM": false
+    },
+    "/bsa-report": {
+        "ADMIN": true,
+        "COLLECTION-HEAD": true,
+        "COLLECTION-EXECUTIVE": true,
+        "VISITOR": true,
+        "ACCOUNTS": true,
+        "RECOVERY_HEAD": true,
+        "ACM": true
+    },
+    "/call-reports": {
+        "ADMIN": false,
+        "COLLECTION-HEAD": false,
+        "COLLECTION-EXECUTIVE": false,
+        "VISITOR": false,
+        "ACCOUNTS": false,
+        "RECOVERY_HEAD": false,
+        "ACM": false
+    },
+    "/cibil-report": {
+        "ADMIN": true,
+        "COLLECTION-HEAD": false,
+        "COLLECTION-EXECUTIVE": false,
+        "VISITOR": false,
+        "ACCOUNTS": false,
+        "RECOVERY_HEAD": false,
+        "ACM": false
+    },
+    "/communication": {
+        "ADMIN": false,
+        "COLLECTION-HEAD": false,
+        "COLLECTION-EXECUTIVE": false,
+        "VISITOR": false,
+        "ACCOUNTS": false,
+        "RECOVERY_HEAD": false,
+        "ACM": false
+    },
+    "/settlement-approval": {
+        "ADMIN": true,
+        "COLLECTION-HEAD": false,
+        "COLLECTION-EXECUTIVE": false,
+        "VISITOR": false,
+        "ACCOUNTS": false,
+        "RECOVERY_HEAD": false,
+        "ACM": false
+    },
+    "/holiday-calendar": {
+        "ADMIN": false,
+        "COLLECTION-HEAD": false,
+        "COLLECTION-EXECUTIVE": false,
+        "VISITOR": false,
+        "ACCOUNTS": false,
+        "RECOVERY_HEAD": false,
+        "ACM": false
+    },
+    "/settings": {
+        "ADMIN": true,
+        "COLLECTION-HEAD": false,
+        "COLLECTION-EXECUTIVE": false,
+        "VISITOR": false,
+        "ACCOUNTS": false,
+        "RECOVERY_HEAD": false,
+        "ACM": false
+    },
+    "/audit": {
+        "ADMIN": true,
+        "COLLECTION-HEAD": false,
+        "COLLECTION-EXECUTIVE": false,
+        "VISITOR": false,
+        "ACCOUNTS": false,
+        "RECOVERY_HEAD": false,
+        "ACM": false
+    },
+    "/noc": {
+        "ADMIN": true,
+        "COLLECTION-HEAD": true,
+        "COLLECTION-EXECUTIVE": false,
+        "VISITOR": false,
+        "ACCOUNTS": false,
+        "RECOVERY_HEAD": false,
+        "ACM": true
+    },
+    "/settlement": {
+        "ADMIN": false,
+        "COLLECTION-HEAD": true,
+        "COLLECTION-EXECUTIVE": true,
+        "VISITOR": false,
+        "ACCOUNTS": false,
+        "RECOVERY_HEAD": false,
+        "ACM": false
+    },
+    "/legal-notice": {
+        "ADMIN": false,
+        "COLLECTION-HEAD": false,
+        "COLLECTION-EXECUTIVE": false,
+        "VISITOR": false,
+        "ACCOUNTS": false,
+        "RECOVERY_HEAD": false,
+        "ACM": false
+    },
+    "/mail": {
+        "ADMIN": false,
+        "COLLECTION-HEAD": false,
+        "COLLECTION-EXECUTIVE": false,
+        "VISITOR": false,
+        "ACCOUNTS": false,
+        "RECOVERY_HEAD": false,
+        "ACM": false
+    },
+    "/add-employee": {
+        "ADMIN": true,
+        "COLLECTION-HEAD": false,
+        "COLLECTION-EXECUTIVE": false,
+        "VISITOR": false,
+        "ACCOUNTS": false,
+        "RECOVERY_HEAD": false,
+        "ACM": false
+    },
+    "/upload-festival": {
+        "ADMIN": false,
+        "COLLECTION-HEAD": false,
+        "COLLECTION-EXECUTIVE": false,
+        "VISITOR": false,
+        "ACCOUNTS": false,
+        "RECOVERY_HEAD": false,
+        "ACM": false
+    },
+    "/role-permissions": {
+        "ADMIN": true,
+        "COLLECTION-HEAD": false,
+        "COLLECTION-EXECUTIVE": false,
+        "VISITOR": false,
+        "ACCOUNTS": false,
+        "RECOVERY_HEAD": false,
+        "ACM": false
+    }
+}

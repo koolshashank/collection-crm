@@ -1,0 +1,13 @@
+{
+    "active_vendor": "vendor_b",
+    "vendors": {
+        "vendor_a": {
+            "label": "WhatsApp Vendor A",
+            "enabled": false
+        },
+        "vendor_b": {
+            "label": "WhatsApp Vendor B",
+            "enabled": true
+        }
+    }
+}

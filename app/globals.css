@@ -1,0 +1,100 @@
+@import url("https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:wght@300;400;500;600;700&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #f7f8fa;
+  --panel-bg: #ffffff;
+  --accent: #0f9b8e;
+  --accent-dark: #0c7a70;
+  --accent-light: #e6f6f4;
+  --text-dark: #1f2937;
+  --text-mid: #4b5563;
+  --text-soft: #6b7280;
+  --border: #e2e5ea;
+  --success: #0f9b8e;
+  --error: #d64545;
+  --navy: #1b2a4a;
+  --navy-light: #26365c;
+  --amber: #e8a33d;
+  --blue: #3b6ea5;
+}
+
+html,
+body {
+  font-family: "DM Sans", sans-serif;
+  background: var(--bg);
+  color: var(--text-dark);
+  min-height: 100vh;
+}
+
+/* Thin scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd2dc transparent;
+}
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+*::-webkit-scrollbar-thumb {
+  background: #cbd2dc;
+  border-radius: 6px;
+}
+
+@layer components {
+  .card {
+    @apply bg-panel border border-line rounded-xl shadow-card;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-primary {
+    @apply btn bg-accent text-white hover:bg-accent-dark;
+  }
+  .btn-secondary {
+    @apply btn bg-white border border-line text-gray-700 hover:bg-gray-50;
+  }
+  .btn-danger {
+    @apply btn bg-danger text-white hover:bg-red-700;
+  }
+  .input {
+    @apply w-full rounded-lg border border-line bg-white px-3 py-2 text-sm outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20 placeholder:text-gray-400;
+  }
+  .label {
+    @apply block text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1;
+  }
+  .th {
+    @apply px-3 py-2.5 text-left text-[11px] font-bold uppercase tracking-wider text-gray-500 bg-gray-50 whitespace-nowrap;
+  }
+  .td {
+    @apply px-3 py-2.5 text-sm text-gray-700 border-t border-line whitespace-nowrap;
+  }
+  .badge {
+    @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold;
+  }
+}
+
+/* ── One Pager print isolation ──
+   When the browser print dialog opens, hide EVERYTHING on the page except
+   the #one-pager-print content (sidebar, header, other modals, etc). */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #one-pager-print,
+  #one-pager-print * {
+    visibility: visible;
+  }
+  #one-pager-print {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    max-height: none !important;
+    overflow: visible !important;
+    padding: 12mm;
+  }
+}
