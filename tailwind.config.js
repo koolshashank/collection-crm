@@ -8,21 +8,33 @@ module.exports = {
   theme: {
     extend: {
       colors: {
+        // These resolve the CSS custom properties defined in app/globals.css's
+        // :root (default values identical to the hex this replaced) — the
+        // Company Setup feature overrides those variables at runtime via an
+        // injected <style> tag in app/layout.js, so every bg-accent/bg-navy/
+        // etc. class in the app re-colors automatically. Zero visual change
+        // until a company theme is actually saved.
+        //
+        // rgb(var(--x) / <alpha-value>) (not plain var(--x)) is required so
+        // Tailwind's "/opacity" modifier syntax (bg-navy/40, bg-accent/20 —
+        // used throughout this app) still works: the vars themselves are
+        // "R G B" triples (see globals.css), and Tailwind substitutes
+        // <alpha-value> for any /NN suffix, or 1 when there's none.
         accent: {
-          DEFAULT: "#0f9b8e",
-          dark: "#0c7a70",
-          light: "#e6f6f4",
+          DEFAULT: "rgb(var(--accent) / <alpha-value>)",
+          dark: "rgb(var(--accent-dark) / <alpha-value>)",
+          light: "rgb(var(--accent-light) / <alpha-value>)",
         },
         navy: {
-          DEFAULT: "#1b2a4a",
-          light: "#26365c",
+          DEFAULT: "rgb(var(--navy) / <alpha-value>)",
+          light: "rgb(var(--navy-light) / <alpha-value>)",
         },
-        surface: "#f7f8fa",
-        panel: "#ffffff",
-        line: "#e2e5ea",
+        surface: "rgb(var(--bg) / <alpha-value>)",
+        panel: "rgb(var(--panel-bg) / <alpha-value>)",
+        line: "rgb(var(--border) / <alpha-value>)",
         amber: "#e8a33d",
-        danger: "#d64545",
-        info: "#3b6ea5",
+        danger: "rgb(var(--error) / <alpha-value>)",
+        info: "rgb(var(--blue) / <alpha-value>)",
       },
       fontFamily: {
         sans: ["'DM Sans'", "sans-serif"],

@@ -7,6 +7,7 @@ import Icon from "./Icon";
 import { visibleSections } from "./menuConfig";
 import { ToastProvider } from "@/components/ui/Toast";
 import { postJson } from "@/lib/clientFetch";
+import { useCompanyConfig } from "@/components/company/CompanyConfigProvider";
 
 function useMenuConfig() {
   const [cfg, setCfg] = useState({});
@@ -138,6 +139,7 @@ function TimerWidget() {
 export default function AppShell({ user, children, rolePermissions }) {
   const pathname = usePathname();
   const router = useRouter();
+  const { appName, tagline, logoUrl } = useCompanyConfig();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -186,14 +188,19 @@ export default function AppShell({ user, children, rolePermissions }) {
             collapsed ? "w-16 justify-center pl-0" : "w-60"
           } max-lg:w-auto max-lg:border-none max-lg:pl-3`}
         >
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent shadow-[0_4px_12px_rgba(15,155,142,.35)]">
-            <Icon name="shield-check" size={18} className="text-white" strokeWidth={2} />
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-accent shadow-[0_4px_12px_rgba(15,155,142,.35)]">
+            {logoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={logoUrl} alt={appName} className="h-full w-full object-cover" />
+            ) : (
+              <Icon name="shield-check" size={18} className="text-white" strokeWidth={2} />
+            )}
           </span>
           {!collapsed && (
             <span className="flex flex-col leading-none max-sm:hidden">
-              <span className="font-display text-[15px] text-white">Collection CRM</span>
+              <span className="font-display text-[15px] text-white">{appName}</span>
               <span className="mt-0.5 text-[10.5px] font-medium uppercase tracking-[.08em] text-white/55">
-                Blinkr Loan
+                {tagline}
               </span>
             </span>
           )}

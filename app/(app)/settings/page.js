@@ -12,6 +12,7 @@ import WhatsAppSection from "@/components/settings/WhatsAppSection";
 import LoanCorrectionSection from "@/components/settings/LoanCorrectionSection";
 import TwoFactorPolicySection from "@/components/settings/TwoFactorPolicySection";
 import SmartPrioritizationSection from "@/components/settings/SmartPrioritizationSection";
+import LoginAlertSection from "@/components/settings/LoginAlertSection";
 
 /**
  * System Settings — port of settings.php.
@@ -27,8 +28,9 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [allowed, setAllowed] = useState(false);
-  const [original, setOriginal] = useState({ payu: true, paytm: true, wa_active: "vendor_a", require2FA: false, smartPrioritization: false });
-  const [current, setCurrent] = useState({ payu: true, paytm: true, wa_active: "vendor_a", require2FA: false, smartPrioritization: false });
+  const loginAlertDefaults = { enabled: true, recipients: [], sender: "info@blinkrloan.com" };
+  const [original, setOriginal] = useState({ payu: true, paytm: true, wa_active: "vendor_a", require2FA: false, smartPrioritization: false, loginAlerts: loginAlertDefaults });
+  const [current, setCurrent] = useState({ payu: true, paytm: true, wa_active: "vendor_a", require2FA: false, smartPrioritization: false, loginAlerts: loginAlertDefaults });
   // Same defaults as settings.php when labels are missing from the config
   const [labels, setLabels] = useState({ vendor_a: "WhatsApp Tech4Logic", vendor_b: "WhatsApp Nimbus" });
   const [saving, setSaving] = useState(false);
@@ -38,7 +40,8 @@ export default function SettingsPage() {
     current.paytm !== original.paytm ||
     current.wa_active !== original.wa_active ||
     current.require2FA !== original.require2FA ||
-    current.smartPrioritization !== original.smartPrioritization;
+    current.smartPrioritization !== original.smartPrioritization ||
+    JSON.stringify(current.loginAlerts) !== JSON.stringify(original.loginAlerts);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -53,18 +56,19 @@ export default function SettingsPage() {
     }
     setAllowed(true);
 
-    const [gwRes, waRes, tfaRes, spRes] = await Promise.all([
+    const [gwRes, waRes, tfaRes, spRes, laRes] = await Promise.all([
       clientFetch("/api/config/gateway"),
       clientFetch("/api/config/whatsapp"),
       clientFetch("/api/config/2fa"),
       clientFetch("/api/config/smart-prioritization"),
+      clientFetch("/api/config/login-alerts"),
     ]);
 
     if (
-      !gwRes.ok || !waRes.ok || !tfaRes.ok || !spRes.ok ||
-      !gwRes.data?.success || !waRes.data?.success || !tfaRes.data?.success || !spRes.data?.success
+      !gwRes.ok || !waRes.ok || !tfaRes.ok || !spRes.ok || !laRes.ok ||
+      !gwRes.data?.success || !waRes.data?.success || !tfaRes.data?.success || !spRes.data?.success || !laRes.data?.success
     ) {
-      setError(gwRes.data?.message || waRes.data?.message || tfaRes.data?.message || spRes.data?.message || "Could not load settings.");
+      setError(gwRes.data?.message || waRes.data?.message || tfaRes.data?.message || spRes.data?.message || laRes.data?.message || "Could not load settings.");
       setLoading(false);
       return;
     }
@@ -73,12 +77,18 @@ export default function SettingsPage() {
     const waCfg = waRes.data.config ?? {};
     const tfaCfg = tfaRes.data.config ?? {};
     const spCfg = spRes.data.config ?? {};
+    const laCfg = laRes.data.config ?? {};
     const state = {
       payu: Boolean(gwCfg.payu ?? true),
       paytm: Boolean(gwCfg.paytm ?? true),
       wa_active: waCfg.active_vendor ?? "vendor_a",
       require2FA: Boolean(tfaCfg.required ?? false),
       smartPrioritization: Boolean(spCfg.enabled ?? false),
+      loginAlerts: {
+        enabled: Boolean(laCfg.enabled ?? true),
+        recipients: Array.isArray(laCfg.recipients) ? laCfg.recipients : [],
+        sender: laCfg.sender ?? "info@blinkrloan.com",
+      },
     };
     setOriginal(state);
     setCurrent(state);
@@ -107,11 +117,12 @@ export default function SettingsPage() {
 
   async function saveAll() {
     setSaving(true);
-    const [gwRes, waRes, tfaRes, spRes] = await Promise.all([
+    const [gwRes, waRes, tfaRes, spRes, laRes] = await Promise.all([
       postJson("/api/config/gateway", { payu: current.payu, paytm: current.paytm }),
       postJson("/api/config/whatsapp", { active_vendor: current.wa_active }),
       postJson("/api/config/2fa", { required: current.require2FA }),
       postJson("/api/config/smart-prioritization", { enabled: current.smartPrioritization }),
+      postJson("/api/config/login-alerts", current.loginAlerts),
     ]);
     setSaving(false);
 
@@ -119,11 +130,12 @@ export default function SettingsPage() {
     const waOk = waRes.ok && waRes.data?.success;
     const tfaOk = tfaRes.ok && tfaRes.data?.success;
     const spOk = spRes.ok && spRes.data?.success;
-    if (gwOk && waOk && tfaOk && spOk) {
+    const laOk = laRes.ok && laRes.data?.success;
+    if (gwOk && waOk && tfaOk && spOk && laOk) {
       setOriginal({ ...current });
       success("Settings saved successfully");
     } else {
-      toastError(gwRes.data?.message || waRes.data?.message || tfaRes.data?.message || spRes.data?.message || "Save failed");
+      toastError(gwRes.data?.message || waRes.data?.message || tfaRes.data?.message || spRes.data?.message || laRes.data?.message || "Save failed");
     }
   }
 
@@ -174,6 +186,11 @@ export default function SettingsPage() {
       <SmartPrioritizationSection
         enabled={current.smartPrioritization}
         onToggle={(v) => setCurrent((c) => ({ ...c, smartPrioritization: v }))}
+      />
+
+      <LoginAlertSection
+        config={current.loginAlerts}
+        onChange={(v) => setCurrent((c) => ({ ...c, loginAlerts: v }))}
       />
 
       {/* Sticky save bar */}

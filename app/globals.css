@@ -5,27 +5,36 @@
 @tailwind utilities;
 
 :root {
-  --bg: #f7f8fa;
-  --panel-bg: #ffffff;
-  --accent: #0f9b8e;
-  --accent-dark: #0c7a70;
-  --accent-light: #e6f6f4;
+  /* Colors that feed a Tailwind token with a "/opacity" modifier anywhere
+     in the app (e.g. bg-navy/40, bg-accent/20) MUST be raw "R G B" triples,
+     not hex — Tailwind's opacity-modifier syntax expands to
+     rgb(var(--x) / <alpha>), which can't decompose a hex string. See
+     tailwind.config.js. Company Setup (app/layout.js) overrides these same
+     five at runtime, also as "R G B" triples. */
+  --bg: 247 248 250; /* #f7f8fa */
+  --panel-bg: 255 255 255; /* #ffffff */
+  --accent: 15 155 142; /* #0f9b8e */
+  --accent-dark: 12 122 112; /* #0c7a70 */
+  --accent-light: 230 246 244; /* #e6f6f4 */
+  --border: 226 229 234; /* #e2e5ea */
+  --error: 214 69 69; /* #d64545 */
+  --navy: 27 42 74; /* #1b2a4a */
+  --navy-light: 38 54 92; /* #26365c */
+  --blue: 59 110 165; /* #3b6ea5 */
+
+  /* Plain hex — never used through a Tailwind color/opacity slash, just
+     inline "color: var(--x)" CSS, so no triple-format needed. */
   --text-dark: #1f2937;
   --text-mid: #4b5563;
   --text-soft: #6b7280;
-  --border: #e2e5ea;
   --success: #0f9b8e;
-  --error: #d64545;
-  --navy: #1b2a4a;
-  --navy-light: #26365c;
   --amber: #e8a33d;
-  --blue: #3b6ea5;
 }
 
 html,
 body {
   font-family: "DM Sans", sans-serif;
-  background: var(--bg);
+  background: rgb(var(--bg));
   color: var(--text-dark);
   min-height: 100vh;
 }

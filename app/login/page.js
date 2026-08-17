@@ -5,9 +5,11 @@ import { useRouter } from "next/navigation";
 import Icon from "@/components/nav/Icon";
 import Spinner from "@/components/ui/Spinner";
 import { postJson } from "@/lib/clientFetch";
+import { useCompanyConfig } from "@/components/company/CompanyConfigProvider";
 
 export default function LoginPage() {
   const router = useRouter();
+  const { appName, tagline, logoUrl } = useCompanyConfig();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPw, setShowPw] = useState(false);
@@ -89,12 +91,17 @@ export default function LoginPage() {
         <div className="absolute -right-32 -top-32 h-96 w-96 rounded-full bg-accent/20 blur-3xl" />
         <div className="absolute -bottom-40 -left-24 h-96 w-96 rounded-full bg-accent/10 blur-3xl" />
         <div className="relative flex items-center gap-3">
-          <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-accent shadow-[0_4px_16px_rgba(15,155,142,.4)]">
-            <Icon name="shield-check" size={22} className="text-white" strokeWidth={2} />
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-accent shadow-[0_4px_16px_rgba(15,155,142,.4)]">
+            {logoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={logoUrl} alt={appName} className="h-full w-full object-cover" />
+            ) : (
+              <Icon name="shield-check" size={22} className="text-white" strokeWidth={2} />
+            )}
           </span>
           <div className="leading-tight">
-            <p className="font-display text-lg text-white">Collection CRM</p>
-            <p className="text-[11px] font-medium uppercase tracking-[.1em] text-white/50">Blinkr Loan</p>
+            <p className="font-display text-lg text-white">{appName}</p>
+            <p className="text-[11px] font-medium uppercase tracking-[.1em] text-white/50">{tagline}</p>
           </div>
         </div>
         <div className="relative">
@@ -108,19 +115,24 @@ export default function LoginPage() {
             one place.
           </p>
         </div>
-        <p className="relative text-xs text-white/40">© {new Date().getFullYear()} Blinkr Loan. All rights reserved.</p>
+        <p className="relative text-xs text-white/40">© {new Date().getFullYear()} {tagline}. All rights reserved.</p>
       </div>
 
       {/* Form panel */}
       <div className="flex w-full items-center justify-center bg-surface px-4 py-10 lg:w-1/2">
         <div className="w-full max-w-sm">
           <div className="mb-8 flex items-center gap-3 lg:hidden">
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent">
-              <Icon name="shield-check" size={20} className="text-white" strokeWidth={2} />
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-accent">
+              {logoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={logoUrl} alt={appName} className="h-full w-full object-cover" />
+              ) : (
+                <Icon name="shield-check" size={20} className="text-white" strokeWidth={2} />
+              )}
             </span>
             <div className="leading-tight">
-              <p className="font-display text-base text-gray-800">Collection CRM</p>
-              <p className="text-[10px] font-medium uppercase tracking-[.1em] text-gray-400">Blinkr Loan</p>
+              <p className="font-display text-base text-gray-800">{appName}</p>
+              <p className="text-[10px] font-medium uppercase tracking-[.1em] text-gray-400">{tagline}</p>
             </div>
           </div>
 

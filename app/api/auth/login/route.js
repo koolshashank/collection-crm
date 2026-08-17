@@ -4,6 +4,7 @@ import { setSession, setPendingSession } from "@/lib/session";
 import { getUserRecord } from "@/lib/twoFactorStore";
 import { readTwoFactorPolicy } from "@/lib/twoFactorPolicy";
 import { logActivity } from "@/lib/auditLog";
+import { sendLoginAlertEmail } from "@/lib/loginAlert";
 
 // Same allow-list as login.php
 const ALLOWED_ROLES = [
@@ -26,6 +27,8 @@ export async function POST(request) {
 
   const username = String(body?.username ?? "").trim();
   const password = String(body?.password ?? "").trim();
+  const ip = request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "";
+  const userAgent = (request.headers.get("user-agent") || "").slice(0, 200);
 
   if (!username || !password) {
     return NextResponse.json({ success: false, message: "Please fill in all fields." }, { status: 400 });
@@ -57,9 +60,10 @@ export async function POST(request) {
         session: sessionPayload,
         action: "login_failed",
         category: "auth",
-        meta: { reason: "unauthorized_role" },
+        meta: { reason: "unauthorized_role", ip, user_agent: userAgent },
         success: false,
       });
+      await sendLoginAlertEmail({ attemptedUsername: username, ip, userAgent, reason: "unauthorized_role" });
       return NextResponse.json(
         { success: false, message: "You are not authorized to access this system." },
         { status: 403 }
@@ -84,9 +88,10 @@ export async function POST(request) {
     session: { username },
     action: "login_failed",
     category: "auth",
-    meta: { reason: "invalid_credentials" },
+    meta: { reason: "invalid_credentials", ip, user_agent: userAgent },
     success: false,
   });
+  await sendLoginAlertEmail({ attemptedUsername: username, ip, userAgent, reason: "invalid_credentials" });
   return NextResponse.json(
     { success: false, message: result?.message || "Invalid email or password." },
     { status: 401 }

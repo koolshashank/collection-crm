@@ -10,6 +10,7 @@ const PUBLIC_API = [
   "/api/noc/track",
   "/api/convox/incoming-auth", // ConVox calls this without a session; route does its own secret auth
   "/api/convox/call-status",  // ConVox Call Status API webhook; route does its own secret auth
+  "/api/config/company", // branding must be visible on the pre-login screen; route does its own admin gate for POST/DELETE
 ];
 
 export function middleware(request) {

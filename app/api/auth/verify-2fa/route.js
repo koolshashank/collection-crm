@@ -3,6 +3,7 @@ import { getPendingSession, setSession, clearPendingSession } from "@/lib/sessio
 import { getUserRecord } from "@/lib/twoFactorStore";
 import { verifyCode } from "@/lib/twoFactor";
 import { logActivity } from "@/lib/auditLog";
+import { sendLoginAlertEmail } from "@/lib/loginAlert";
 
 export async function POST(request) {
   let body;
@@ -11,6 +12,9 @@ export async function POST(request) {
   } catch {
     return NextResponse.json({ success: false, message: "Invalid request body." }, { status: 400 });
   }
+
+  const ip = request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "";
+  const userAgent = (request.headers.get("user-agent") || "").slice(0, 200);
 
   const pending = getPendingSession();
   if (!pending) {
@@ -34,9 +38,10 @@ export async function POST(request) {
       session: pending,
       action: "login_failed",
       category: "auth",
-      meta: { reason: "invalid_2fa_code" },
+      meta: { reason: "invalid_2fa_code", ip, user_agent: userAgent },
       success: false,
     });
+    await sendLoginAlertEmail({ attemptedUsername: pending?.username, ip, userAgent, reason: "invalid_2fa_code" });
     return NextResponse.json({ success: false, message: "Invalid code. Please try again." }, { status: 401 });
   }
 

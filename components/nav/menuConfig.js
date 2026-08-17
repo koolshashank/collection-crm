@@ -76,6 +76,7 @@ export const MENU_SECTIONS = [
       { menuKey: "legal_notice", label: "Legal Notice", href: "/legal-notice", icon: "scale", roles: ["ADMIN"] },
       { menuKey: "mail", label: "Mail", href: "/mail", icon: "mail", roles: ["ADMIN"] },
       { menuKey: "add_employee", label: "Create User", href: "/add-employee", icon: "user-plus", roles: ["ADMIN"] },
+      { menuKey: "company_setup", label: "Company Setup", href: "/company-setup", icon: "image", roles: ["ADMIN"] },
       { menuKey: "upload_festival", label: "Festival Media", href: "/upload-festival", icon: "image", roles: ["ADMIN"] },
       { menuKey: "menu_manager", label: "Role Permissions", href: "/role-permissions", icon: "sliders", roles: ["ADMIN"] },
     ],
