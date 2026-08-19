@@ -1,7 +1,10 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import styles from "./settlementApproval.module.css";
 import { fmtInr, fmtDate, fmtDateTime } from "@/components/settlement/settlementUtils";
+import { clientFetch } from "@/lib/clientFetch";
+import { getSettlementSuggestion } from "@/lib/settlementVintage";
 
 const ST_CLASS = { pending: styles.stPending, approved: styles.stApproved, rejected: styles.stRejected };
 const ST_LABEL = { pending: "Pending", approved: "Approved", rejected: "Rejected" };
@@ -28,7 +31,22 @@ function dpdColor(dpd) {
 }
 
 export default function DetailModal({ open, row, onClose, onApprove, onReject, onMarkLetter }) {
+  const [vintagePolicy, setVintagePolicy] = useState(null);
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    clientFetch("/api/config/settlement-vintage").then((res) => {
+      if (!cancelled && res.ok && res.data?.success) setVintagePolicy(res.data.config);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
+
   if (!open || !row) return null;
+
+  const suggestion = getSettlementSuggestion(vintagePolicy, row.dpd, row.outstanding);
 
   return (
     <div className={styles.modalOverlay} onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
@@ -72,6 +90,19 @@ export default function DetailModal({ open, row, onClose, onApprove, onReject, o
               <DetRow label="Settlement Type" value={<span className={styles.typeBadge}>{row.settleType || "OTS"}</span>} />
               <DetRow label="Settlement Date" value={fmtDate(row.settleDate)} />
             </div>
+            {suggestion && (
+              <div
+                style={{
+                  marginTop: 10, background: "var(--info-light)", border: "1px solid var(--info-border, #b3d9f0)",
+                  borderRadius: 8, padding: "8px 12px", fontSize: ".78rem", color: "var(--text-dark)",
+                }}
+              >
+                <span style={{ color: "var(--info)", fontWeight: 700 }}>ⓘ Vintage policy suggestion:</span>{" "}
+                {suggestion.bucketLabel} → <strong>{suggestion.percent}%</strong> of outstanding ={" "}
+                <strong style={{ color: "var(--info)" }}>{fmtInr(suggestion.amount)}</strong>{" "}
+                <span style={{ color: "var(--text-soft)", fontStyle: "italic" }}>(reference only — for review context)</span>
+              </div>
+            )}
           </div>
 
           <div className={styles.detSection}>

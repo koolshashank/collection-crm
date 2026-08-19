@@ -1,29 +1,42 @@
 "use client";
 
+import { useState } from "react";
+import { CiIcon } from "@/components/client-info/icons";
 import { isNumeric, numberFormat } from "./format";
 import { SectionLabel, WidgetError, WidgetLoading } from "./shared";
+import DpdBucketModal from "./DpdBucketModal";
 
-const WARN_ICON =
-  '<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>';
-const TRIANGLE_ICON =
-  '<path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>';
-
-/* Same labels / colors / trend flags as dashboard.php's $dpdBuckets */
+/* Same buckets as portfolio-summary's dpdBucketDistribution — status tier
+   labels/colors are new (matches the redesign), boundaries are unchanged.
+   min/max feed both the modal's real case lookup and the Portfolio deep link. */
 const BUCKET_DEFS = [
-  { label: "No DPD", color: "#1E7E5E", bg: "rgba(30,126,94,.10)", icon: '<path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>', trend: null },
-  { label: "1–30 DPD", color: "#e8a33d", bg: "rgba(232,163,61,.10)", icon: WARN_ICON, trend: "down" },
-  { label: "31–60 DPD", color: "#d97706", bg: "rgba(217,119,6,.10)", icon: WARN_ICON, trend: "down" },
-  { label: "61–90 DPD", color: "#ea580c", bg: "rgba(234,88,12,.10)", icon: TRIANGLE_ICON, trend: "down" },
-  { label: "91–120 DPD", color: "#dc2626", bg: "rgba(220,38,38,.10)", icon: TRIANGLE_ICON, trend: "down" },
-  { label: "121–180 DPD", color: "#b91c1c", bg: "rgba(185,28,28,.10)", icon: TRIANGLE_ICON, trend: "down" },
-  { label: "180+ DPD", color: "#7f1d1d", bg: "rgba(127,29,29,.10)", icon: '<polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/>', trend: "down" },
+  { label: "No DPD", tier: "Good", color: "#1E7E5E", icon: "check", min: 0, max: 0 },
+  { label: "1–30 DPD", tier: "Watch", color: "#e8a33d", icon: "warn", min: 1, max: 30 },
+  { label: "31–60 DPD", tier: "At Risk", color: "#d97706", icon: "warn", min: 31, max: 60 },
+  { label: "61–90 DPD", tier: "High", color: "#ea580c", icon: "warn", min: 61, max: 90 },
+  { label: "91–120 DPD", tier: "High", color: "#dc2626", icon: "warn", min: 91, max: 120 },
+  { label: "121–180 DPD", tier: "Critical", color: "#b91c1c", icon: "warn", min: 121, max: 180 },
+  { label: "180+ DPD", tier: "Critical", color: "#7f1d1d", icon: "warn", min: 181, max: null },
 ];
+
+const TIER_TONE = {
+  Good: "border-emerald-200 bg-emerald-50 text-emerald-700",
+  Watch: "border-amber-200 bg-amber-50 text-amber-700",
+  "At Risk": "border-orange-200 bg-orange-50 text-orange-700",
+  High: "border-red-200 bg-red-50 text-danger",
+  Critical: "border-red-300 bg-red-100 text-red-800",
+};
 
 /**
  * DPD Bucket Distribution — mirror of dashboard.php's g7 KPI grid,
- * incl. the "Live from portfolio-summary" vs fallback badge.
+ * incl. the "Live from portfolio-summary" vs fallback badge. Redesigned as
+ * a compact single-row strip (icon · label · tier pill, value, % of total).
  */
 export default function DpdBuckets({ values, live, loading, error, onRetry }) {
+  const numericValues = values.filter(isNumeric).map(Number);
+  const total = numericValues.reduce((s, v) => s + v, 0);
+  const [selected, setSelected] = useState(null);
+
   return (
     <>
       <SectionLabel
@@ -42,11 +55,7 @@ export default function DpdBuckets({ values, live, loading, error, onRetry }) {
           )
         }
       >
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-3 w-3">
-          <circle cx="12" cy="12" r="10" />
-          <line x1="12" y1="8" x2="12" y2="12" />
-          <line x1="12" y1="16" x2="12.01" y2="16" />
-        </svg>
+        <CiIcon name="warn" size={12} strokeWidth={2} />
         DPD Bucket Distribution
       </SectionLabel>
 
@@ -59,38 +68,58 @@ export default function DpdBuckets({ values, live, loading, error, onRetry }) {
           <WidgetError message={error} onRetry={onRetry} />
         </div>
       ) : (
-        <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4 2xl:grid-cols-7">
+        <div className="mb-4 grid grid-cols-2 gap-2.5 md:grid-cols-4 2xl:grid-cols-7">
           {BUCKET_DEFS.map((d, i) => {
             const v = values[i];
-            const dispVal = isNumeric(v) ? numberFormat(v) : v || "—";
+            const num = isNumeric(v) ? Number(v) : null;
+            const dispVal = num !== null ? numberFormat(num) : v || "—";
+            const pctOfTotal = num !== null && total > 0 ? Math.round((num / total) * 1000) / 10 : null;
             return (
-              <div key={d.label} className="card relative overflow-hidden px-4 pb-3 pt-4 transition hover:-translate-y-0.5 hover:shadow-pop">
+              <button
+                key={d.label}
+                type="button"
+                onClick={() =>
+                  num !== null &&
+                  setSelected({
+                    label: d.label,
+                    tier: d.tier,
+                    tierClass: TIER_TONE[d.tier],
+                    color: d.color,
+                    min: d.min,
+                    max: d.max,
+                    count: num,
+                    pctOfTotal,
+                  })
+                }
+                disabled={num === null}
+                className="card relative overflow-hidden px-3.5 py-3 text-left transition enabled:cursor-pointer enabled:hover:-translate-y-0.5 enabled:hover:shadow-pop disabled:cursor-default"
+              >
                 <div className="absolute inset-x-0 top-0 h-[3px]" style={{ background: d.color }} />
-                {d.trend === "down" ? (
-                  <div className="absolute right-3 top-3 flex items-center gap-0.5 rounded-full bg-red-400/15 px-1.5 py-0.5 text-[0.62rem] font-bold text-red-600">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="h-2 w-2">
-                      <polyline points="18 9 12 15 6 9" />
-                    </svg>
-                    High
-                  </div>
-                ) : i === 0 ? (
-                  <div className="absolute right-3 top-3 flex items-center gap-0.5 rounded-full bg-green-400/15 px-1.5 py-0.5 text-[0.62rem] font-bold text-green-600">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="h-2 w-2">
-                      <polyline points="18 15 12 9 6 15" />
-                    </svg>
-                    Good
-                  </div>
-                ) : null}
-                <div className="mb-2.5 flex h-[34px] w-[34px] items-center justify-center rounded-lg" style={{ background: d.bg, color: d.color }}>
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4" dangerouslySetInnerHTML={{ __html: d.icon }} />
+                <div className="flex items-center justify-between gap-1.5">
+                  <span className="flex items-center gap-1.5 min-w-0">
+                    <span
+                      className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full"
+                      style={{ background: d.color + "1a", color: d.color }}
+                    >
+                      <CiIcon name={d.icon} size={12} strokeWidth={2.5} />
+                    </span>
+                    <span className="truncate text-[0.7rem] font-semibold text-gray-600">{d.label}</span>
+                  </span>
+                  <span className={`shrink-0 rounded-full border px-1.5 py-0.5 text-[0.6rem] font-bold ${TIER_TONE[d.tier]}`}>
+                    {d.tier}
+                  </span>
                 </div>
-                <div className="font-display text-base font-bold leading-none text-gray-800">{dispVal}</div>
-                <div className="mt-1 text-[0.7rem] font-medium leading-tight text-gray-400">{d.label}</div>
-              </div>
+                <div className="mt-2 font-display text-lg font-bold leading-none text-gray-800">{dispVal}</div>
+                <div className="mt-1 text-[0.66rem] text-gray-400">
+                  {pctOfTotal !== null ? `${pctOfTotal}% of total` : "—"}
+                </div>
+              </button>
             );
           })}
         </div>
       )}
+
+      <DpdBucketModal open={!!selected} onClose={() => setSelected(null)} bucket={selected} />
     </>
   );
 }

@@ -3,6 +3,12 @@ import * as XLSX from "xlsx";
 import { getSession } from "@/lib/session";
 import { rawGet } from "@/lib/serverApi";
 import { paytrackerUrl } from "@/lib/apiConfig";
+import { logActivity } from "@/lib/auditLog";
+
+// Same role list the Collection menu item itself is gated to (menuConfig.js) —
+// the UI already hid this from anyone else, but the route wasn't enforcing
+// it, so a direct URL hit could bypass that gate entirely.
+const ALLOWED_ROLES = ["ADMIN", "COLLECTION-HEAD", "ACM"];
 
 export const dynamic = "force-dynamic";
 
@@ -58,6 +64,12 @@ export async function GET(request) {
     if (!session) {
       return NextResponse.json({ success: false, message: "Session expired. Please login again." }, { status: 401 });
     }
+    if (!(session.roles ?? []).some((r) => ALLOWED_ROLES.includes(r))) {
+      return NextResponse.json(
+        { success: false, message: "You are not authorized to export this report." },
+        { status: 403 }
+      );
+    }
     const jwt = session.jwt_token;
     const sp = request.nextUrl.searchParams;
 
@@ -87,6 +99,14 @@ export async function GET(request) {
         message: "No records found to export for the current filters.",
       });
     }
+
+    logActivity({
+      session,
+      action: "collection_export",
+      category: "payments",
+      entity: null,
+      meta: { rows: allLeads.length, startDate, endDate, search: search || undefined },
+    });
 
     /* Same header row / column order as the old client-side export */
     const header = [

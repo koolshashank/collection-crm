@@ -58,7 +58,7 @@ body {
     @apply bg-panel border border-line rounded-xl shadow-card;
   }
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed outline-none focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:ring-offset-1;
   }
   .btn-primary {
     @apply btn bg-accent text-white hover:bg-accent-dark;
@@ -86,6 +86,20 @@ body {
   }
 }
 
+@keyframes onePagerFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.one-pager-fade {
+  animation: onePagerFadeIn 0.28s ease-out;
+}
+
 /* ── One Pager print isolation ──
    When the browser print dialog opens, hide EVERYTHING on the page except
    the #one-pager-print content (sidebar, header, other modals, etc). */
@@ -94,10 +108,13 @@ body {
     visibility: hidden;
   }
   #one-pager-print,
-  #one-pager-print * {
+  #one-pager-print *,
+  #bsa-report-print,
+  #bsa-report-print * {
     visibility: visible;
   }
-  #one-pager-print {
+  #one-pager-print,
+  #bsa-report-print {
     position: fixed;
     top: 0;
     left: 0;

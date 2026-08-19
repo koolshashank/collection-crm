@@ -1,12 +1,19 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { clientFetch } from "@/lib/clientFetch";
+
 /**
  * NOC document preview — port of noc.php's buildNOCHtml().
  * Mirrors the PDF exactly: same title, meta rows, paragraph order and
  * wording, remarks note, regards block and system-generated stamp.
- * Header/footer/logo images come from /assets (hidden on load error,
+ * Header/footer images default to /assets but reflect whatever has been
+ * uploaded in Settings → Document Header & Footer (hidden on load error,
  * same as the PHP's onerror handlers).
  */
+
+const DEFAULT_HEADER_URL = "/assets/noc_header.jpg";
+const DEFAULT_FOOTER_URL = "/assets/noc_Footer.jpg";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -29,6 +36,24 @@ const hideOnError = (e) => {
 };
 
 export default function NocDocPreview({ d, nocDate, remarks }) {
+  const [assets, setAssets] = useState({ headerUrl: DEFAULT_HEADER_URL, footerUrl: DEFAULT_FOOTER_URL });
+
+  useEffect(() => {
+    let active = true;
+    clientFetch("/api/config/document-header-footer").then((res) => {
+      if (!active || !res.ok || !res.data?.success) return;
+      const cfg = res.data.config ?? {};
+      const cacheBust = cfg.updatedAt ? `?v=${encodeURIComponent(cfg.updatedAt)}` : "";
+      setAssets({
+        headerUrl: (cfg.headerUrl || DEFAULT_HEADER_URL) + cacheBust,
+        footerUrl: (cfg.footerUrl || DEFAULT_FOOTER_URL) + cacheBust,
+      });
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
   if (!d) return null;
 
   const dateDisp = fmtDMY(nocDate || new Date().toISOString().split("T")[0]);
@@ -44,7 +69,7 @@ export default function NocDocPreview({ d, nocDate, remarks }) {
       {/* Header image */}
       <div className="block w-full leading-none">
         <img
-          src="/assets/noc_header.jpg"
+          src={assets.headerUrl}
           alt="BlinkR Loan | Dev-Aashish Capitals Pvt. Ltd."
           className="block h-auto w-full"
           onError={hideOnError}
@@ -127,7 +152,7 @@ export default function NocDocPreview({ d, nocDate, remarks }) {
       {/* Footer image (file on disk is noc_Footer.jpg) */}
       <div className="mt-6 block w-full leading-none">
         <img
-          src="/assets/noc_Footer.jpg"
+          src={assets.footerUrl}
           alt="RBI Registered NBFC"
           className="block h-auto w-full"
           onError={hideOnError}

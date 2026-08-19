@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
 import {
   statusMeta,
   fmtInr,
@@ -9,14 +8,16 @@ import {
   dpdBucketInfo,
   DPD_BUCKET_TONES,
 } from "./leadUtils";
+import { avatarColor, initials, hexToRgba } from "@/lib/avatarColor";
 
-/* Sticky column offsets — same widths as lead.php (44 / 60 / 130 / 130 / 220) */
+/* Sticky column offsets — # / Status / Loan ID / Borrower stay frozen while
+   the rest of the table scrolls horizontally; Action moved to the far right
+   (matching the reference layout) so it's no longer part of this set. */
 const STICKY = [
   { left: 0, width: 44 },
-  { left: 44, width: 60 },
-  { left: 104, width: 130 },
-  { left: 234, width: 130 },
-  { left: 364, width: 220 },
+  { left: 44, width: 130 },
+  { left: 174, width: 130 },
+  { left: 304, width: 220 },
 ];
 
 function SortHeader({ col, label, sort, order, onSort, className = "" }) {
@@ -47,43 +48,6 @@ export default function LeadsTable({
   totalRepayment,
   actions,
 }) {
-  const scrollRef = useRef(null);
-  const [menu, setMenu] = useState(null); // { idx, top, left }
-
-  /* Close dropdown on outside click / scroll / resize / Escape (same as PHP) */
-  useEffect(() => {
-    if (!menu) return;
-    const close = () => setMenu(null);
-    const onDoc = (e) => {
-      if (!e.target.closest?.("[data-lp-dropdown]") && !e.target.closest?.("[data-lp-dots]")) close();
-    };
-    const onKey = (e) => e.key === "Escape" && close();
-    document.addEventListener("click", onDoc);
-    document.addEventListener("keydown", onKey);
-    window.addEventListener("resize", close);
-    const sc = scrollRef.current;
-    sc?.addEventListener("scroll", close);
-    return () => {
-      document.removeEventListener("click", onDoc);
-      document.removeEventListener("keydown", onKey);
-      window.removeEventListener("resize", close);
-      sc?.removeEventListener("scroll", close);
-    };
-  }, [menu]);
-
-  const toggleMenu = (e, idx) => {
-    e.stopPropagation();
-    if (menu?.idx === idx) { setMenu(null); return; }
-    const rect = e.currentTarget.getBoundingClientRect();
-    const ddW = 200, ddH = 100; // 2-item menu now — was 330 when the menu had 8 items
-    let left = rect.left;
-    if (left + ddW > window.innerWidth - 8) left = rect.right - ddW;
-    if (left < 8) left = 8;
-    let top = rect.bottom + 6;
-    if (top + ddH > window.innerHeight - 8) top = Math.max(8, rect.top - ddH - 6);
-    setMenu({ idx, top, left });
-  };
-
   const stickyTh = (i) => ({
     position: "sticky",
     left: STICKY[i].left,
@@ -98,24 +62,21 @@ export default function LeadsTable({
     width: STICKY[i].width,
     zIndex: 3,
   });
-  const col5Shadow = { boxShadow: "4px 0 8px -2px rgba(27,42,74,.10)", borderRight: "1.5px solid #e2e5ea" };
-
-  const menuRow = menu ? rows[menu.idx] : null;
+  const col4Shadow = { boxShadow: "4px 0 8px -2px rgba(27,42,74,.10)", borderRight: "1.5px solid #e2e5ea" };
 
   return (
-    <div ref={scrollRef} className="overflow-x-auto">
+    <div className="overflow-x-auto">
       <table className="w-full min-w-[1100px] border-collapse text-sm">
         <thead>
           <tr className="border-b border-line bg-surface">
             <th className="th bg-surface" style={stickyTh(0)}>#</th>
-            <th className="th bg-surface text-center" style={stickyTh(1)}>Action</th>
-            <th className="th bg-surface" style={stickyTh(2)}>
+            <th className="th bg-surface" style={stickyTh(1)}>
               <SortHeader col="status" label="Status" sort={sort} order={order} onSort={onSort} />
             </th>
-            <th className="th bg-surface" style={stickyTh(3)}>
+            <th className="th bg-surface" style={stickyTh(2)}>
               <SortHeader col="loan_id" label="Loan ID" sort={sort} order={order} onSort={onSort} />
             </th>
-            <th className="th bg-surface" style={{ ...stickyTh(4), ...col5Shadow }}>
+            <th className="th bg-surface" style={{ ...stickyTh(3), ...col4Shadow }}>
               <SortHeader col="name" label="Borrower" sort={sort} order={order} onSort={onSort} />
             </th>
             <th className="th"><SortHeader col="repayment_amount" label="Repayment Amt" sort={sort} order={order} onSort={onSort} /></th>
@@ -123,8 +84,7 @@ export default function LeadsTable({
             <th className="th hidden md:table-cell"><SortHeader col="mobile" label="Mobile" sort={sort} order={order} onSort={onSort} /></th>
             <th className="th hidden md:table-cell"><SortHeader col="sanction_amount" label="Sanction Amt" sort={sort} order={order} onSort={onSort} /></th>
             <th className="th"><SortHeader col="disbursal_date" label="Disbursal Date" sort={sort} order={order} onSort={onSort} /></th>
-            <th className="th"><SortHeader col="city" label="City" sort={sort} order={order} onSort={onSort} /></th>
-            <th className="th"><SortHeader col="state" label="State" sort={sort} order={order} onSort={onSort} /></th>
+            <th className="th">City / State</th>
             {priorityEnabled && (
               <th className="th whitespace-nowrap"><SortHeader col="priority_score" label="Priority" sort={sort} order={order} onSort={onSort} /></th>
             )}
@@ -134,13 +94,14 @@ export default function LeadsTable({
             <th className="th whitespace-nowrap">Salary Date</th>
             <th className="th whitespace-nowrap">Allocated By</th>
             <th className="th whitespace-nowrap">Disposition</th>
+            <th className="th whitespace-nowrap text-center">Action</th>
           </tr>
         </thead>
         <tbody>
           {rows.map((row, i) => {
             const meta = statusMeta(row.payment_status ?? "");
             const serial = (currentPage - 1) * limit + i + 1;
-            const initials = String(row.full_name || "U").substring(0, 1).toUpperCase();
+            const rowColor = avatarColor(row.full_name || row.loan_id || i);
             const isReloan = Boolean(
               row.is_reloan_case && row.is_reloan_case !== false &&
               row.is_reloan_case !== "false" && row.is_reloan_case !== "0"
@@ -164,24 +125,8 @@ export default function LeadsTable({
                   {serial}
                 </td>
 
-                {/* Action */}
-                <td className="td bg-inherit !px-0 text-center group-hover:bg-[#f4faf9]" style={stickyTd(1)}>
-                  <button
-                    data-lp-dots
-                    title="Actions"
-                    onClick={(e) => toggleMenu(e, i)}
-                    className={`mx-auto flex h-8 w-8 items-center justify-center rounded-lg border transition hover:border-accent hover:bg-accent-light hover:text-accent-dark ${
-                      menu?.idx === i ? "border-accent bg-accent-light text-accent-dark" : "border-line bg-panel text-gray-400"
-                    }`}
-                  >
-                    <svg viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4">
-                      <circle cx="12" cy="5" r="1.5" /><circle cx="12" cy="12" r="1.5" /><circle cx="12" cy="19" r="1.5" />
-                    </svg>
-                  </button>
-                </td>
-
                 {/* Status */}
-                <td className="td bg-inherit group-hover:bg-[#f4faf9]" style={stickyTd(2)}>
+                <td className="td bg-inherit group-hover:bg-[#f4faf9]" style={stickyTd(1)}>
                   <span className={`badge border ${meta.cls}`}>
                     <span className="mr-1 inline-block h-1.5 w-1.5 rounded-full bg-current align-middle" />
                     {meta.label}
@@ -189,21 +134,27 @@ export default function LeadsTable({
                 </td>
 
                 {/* Loan ID — opens the One Pager page (sidebar/header stay, keeps app chrome) */}
-                <td className="td bg-inherit group-hover:bg-[#f4faf9]" style={stickyTd(3)}>
+                <td className="td bg-inherit group-hover:bg-[#f4faf9]" style={stickyTd(2)}>
                   <a
                     href={`/customer-one-pager?lead_id=${encodeURIComponent(row.lead_id ?? "")}`}
                     title="View customer one-pager"
-                    className="badge cursor-pointer bg-accent-light font-bold text-accent-dark no-underline transition hover:scale-105 hover:bg-accent hover:text-white"
+                    className="badge cursor-pointer font-bold no-underline transition hover:scale-105 hover:text-white"
+                    style={{ background: hexToRgba(rowColor, 0.12), color: rowColor }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = rowColor; e.currentTarget.style.color = "#fff"; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = hexToRgba(rowColor, 0.12); e.currentTarget.style.color = rowColor; }}
                   >
                     {row.loan_id ?? ""}
                   </a>
                 </td>
 
                 {/* Borrower (last frozen col) */}
-                <td className="td bg-inherit group-hover:bg-[#f4faf9]" style={{ ...stickyTd(4), ...col5Shadow }}>
+                <td className="td bg-inherit group-hover:bg-[#f4faf9]" style={{ ...stickyTd(3), ...col4Shadow }}>
                   <div className="flex items-center gap-2">
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-accent-light to-accent font-display text-xs font-bold text-white">
-                      {initials}
+                    <span
+                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg font-display text-xs font-bold text-white"
+                      style={{ background: rowColor }}
+                    >
+                      {initials(row.full_name)}
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate font-semibold leading-tight text-gray-800">{row.full_name ?? ""}</span>
@@ -220,9 +171,9 @@ export default function LeadsTable({
                       </button>
                     </span>
                     <button
-                      title={`Call ${row.full_name ?? ""}`}
+                      title="Call Disposition"
                       onClick={(e) => { e.stopPropagation(); actions.onCall(row); }}
-                      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-accent/40 bg-accent-light text-accent-dark transition hover:scale-110 hover:bg-accent-dark hover:text-white"
+                      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-line bg-panel text-gray-400 transition hover:scale-110 hover:border-accent hover:bg-accent-light hover:text-accent-dark"
                     >
                       <PhoneIcon />
                     </button>
@@ -242,8 +193,12 @@ export default function LeadsTable({
                 <td className="td hidden text-gray-600 md:table-cell">{row.mobile ?? ""}</td>
                 <td className="td hidden font-semibold tabular-nums text-gray-800 md:table-cell">{fmtInr(row.sanction_amount ?? 0)}</td>
                 <td className="td text-gray-400">{row.disbursal_date_ist ? fmtYmd(row.disbursal_date_ist) : ""}</td>
-                <td className="td">{row.city ?? ""}</td>
-                <td className="td">{row.state ?? ""}</td>
+                <td className="td">
+                  <div className="leading-tight">
+                    <div className="text-sm text-gray-700">{row.city || "—"}</div>
+                    <div className="text-[11px] text-gray-400">{row.state || "—"}</div>
+                  </div>
+                </td>
 
                 {/* Priority (Smart Prioritization) */}
                 {priorityEnabled && (
@@ -324,13 +279,27 @@ export default function LeadsTable({
                     <span className="text-xs text-gray-300">—</span>
                   )}
                 </td>
+
+                {/* Action */}
+                <td className="td text-center">
+                  <div className="flex items-center justify-center gap-1.5">
+                    <button
+                      type="button"
+                      title="Disposition History"
+                      onClick={(e) => { e.stopPropagation(); actions.onTimeline(row); }}
+                      className="flex h-8 w-8 items-center justify-center rounded-lg border border-line bg-panel text-gray-400 transition hover:border-accent hover:bg-accent-light hover:text-accent-dark"
+                    >
+                      <EyeIcon />
+                    </button>
+                  </div>
+                </td>
               </tr>
             );
           })}
         </tbody>
         <tfoot>
           <tr className="bg-accent-light text-xs font-bold text-accent-dark">
-            <td className="td !border-t border-line" colSpan={5}>
+            <td className="td !border-t border-line" colSpan={4}>
               Page Totals ({rows.length} records shown)
             </td>
             <td className="td">{fmtInr(totalRepayment)}</td>
@@ -341,51 +310,7 @@ export default function LeadsTable({
           </tr>
         </tfoot>
       </table>
-
-      {/* Row action dropdown (fixed-positioned, like lpToggleMenu) */}
-      {menu && menuRow && (
-        <div
-          data-lp-dropdown
-          className="fixed z-[999] min-w-[190px] origin-top-left overflow-hidden rounded-xl border border-line bg-panel py-1 shadow-pop animate-[ltMenuIn_.14s_ease-out]"
-          style={{ top: menu.top, left: menu.left }}
-        >
-          {/* Trimmed down to 2 options for now — rest kept in code above (onWhatsApp,
-              onWhatsAppTemplate, onRemarks, onPtp, onAssign) for whenever they're needed again. */}
-          <MenuBtn className="!text-accent-dark" onClick={() => { setMenu(null); actions.onCall(menuRow); }}>
-            Call Disposition
-          </MenuBtn>
-          <MenuBtn onClick={() => { setMenu(null); actions.onTimeline(menuRow); }}>Disposition History</MenuBtn>
-        </div>
-      )}
-
-      <style jsx>{`
-        @keyframes ltMenuIn {
-          from { opacity: 0; transform: scale(.96) translateY(-4px); }
-          to   { opacity: 1; transform: scale(1) translateY(0); }
-        }
-      `}</style>
     </div>
-  );
-}
-
-function MenuBtn({ children, onClick, className = "" }) {
-  return (
-    <button
-      onClick={onClick}
-      className={`flex w-full items-center gap-2 whitespace-nowrap px-4 py-2.5 text-left text-sm font-medium text-gray-700 transition hover:bg-accent-light hover:text-accent-dark ${className}`}
-    >
-      {children}
-    </button>
-  );
-}
-function MenuLink({ children, href }) {
-  return (
-    <a
-      href={href}
-      className="flex w-full items-center gap-2 whitespace-nowrap px-4 py-2.5 text-left text-sm font-medium text-gray-700 no-underline transition hover:bg-accent-light hover:text-accent-dark"
-    >
-      {children}
-    </a>
   );
 }
 
@@ -393,6 +318,14 @@ function PhoneIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-3.5 w-3.5">
       <path d="M22 16.92v3a2 2 0 01-2.18 2A19.79 19.79 0 014.08 4.18 2 2 0 016 2h3a2 2 0 012 1.72c.13 1 .36 1.97.71 2.9a2 2 0 01-.45 2.11L10.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.93.35 1.9.58 2.9.71A2 2 0 0122 16.92z" />
+    </svg>
+  );
+}
+function EyeIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-3.5 w-3.5">
+      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+      <circle cx="12" cy="12" r="3" />
     </svg>
   );
 }

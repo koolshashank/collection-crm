@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSession } from "@/lib/session";
 import { apiGet, apiPost } from "@/lib/serverApi";
 import { logActivity } from "@/lib/auditLog";
+import { readRoundRobinPolicy } from "@/lib/roundRobinPolicy";
 
 export const dynamic = "force-dynamic";
 
@@ -32,6 +33,13 @@ export async function POST(request) {
       return NextResponse.json(
         { success: false, message: "Session expired. Please login again." },
         { status: 401 }
+      );
+    }
+
+    if (!readRoundRobinPolicy().enabled) {
+      return NextResponse.json(
+        { success: false, message: "Round Robin Distribution is currently turned off. An admin can re-enable it in Settings." },
+        { status: 403 }
       );
     }
 

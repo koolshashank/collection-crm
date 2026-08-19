@@ -8,6 +8,7 @@ import { scoreListRow } from "@/lib/leadScoring";
 import { PageHeader, ErrorState, EmptyState } from "@/components/ui/Feedback";
 import { PageLoader } from "@/components/ui/Spinner";
 import { useToast } from "@/components/ui/Toast";
+import { CiIcon } from "@/components/client-info/icons";
 import {
   isPrivilegedUser,
   sortLoanList,
@@ -243,6 +244,7 @@ export default function LeadsPageClient({ roles, username, jwtToken, searchParam
     setCopied(true);
     toast.success("Token copied to clipboard!");
     setTimeout(() => setCopied(false), 2000);
+    postJson("/api/activity/log", { action: "token_copied", entity: null, meta: {} }).catch(() => {});
   };
 
   /* ── Modal state ──────────────────────────────────────────────────────── */
@@ -335,6 +337,7 @@ export default function LeadsPageClient({ roles, username, jwtToken, searchParam
     <div>
       {/* ── Page header ── */}
       <PageHeader
+        icon={<CiIcon name="briefcase" size={20} strokeWidth={1.8} />}
         title="Loan Portfolio"
         subtitle="Browse, filter and manage all active loan accounts"
         actions={
@@ -359,13 +362,13 @@ export default function LeadsPageClient({ roles, username, jwtToken, searchParam
         }
       />
 
-      {/* ── Portfolio Dashboard Cards — temporarily hidden, not removed ── */}
-      {/* <PortfolioDashboard
+      {/* ── Portfolio Dashboard Cards ── */}
+      <PortfolioDashboard
         loading={pfDash.loading}
         error={pfDash.error}
         dashboard={pfDash.data}
         onCardClick={(key, label) => setPfCard({ key, label })}
-      /> */}
+      />
 
       {/* ── Toolbar ── */}
       <LeadsToolbar

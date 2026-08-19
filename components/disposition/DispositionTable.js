@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { toneForCode } from "./dispositionTones";
 
 /**
  * Shared disposition table — used by the main page and by the per-code modal.
@@ -14,7 +15,7 @@ export const COLUMNS = [
   { label: "Loan No", keys: ["loan_no", "loanNo", "loan_id"], type: "loan" },
   { label: "Employee Name", keys: ["employee_name", "employeeName", "emp_name", "agent_name"] },
   { label: "Disposition Code", keys: ["disposition_code", "dispositionCode"], type: "code" },
-  { label: "Disposition Label", keys: ["disposition_label", "dispositionLabel"], type: "badge" },
+  { label: "Disposition Label", keys: ["disposition_label", "dispositionLabel"], type: "dispositionBadge" },
   { label: "Display", keys: ["display", "display_name", "displayName"] },
   { label: "Ptp Amount", keys: ["ptp_amount", "ptpAmount"], type: "inr" },
   { label: "Ptp Date", keys: ["ptp_date", "ptpDate"], type: "date" },
@@ -71,6 +72,7 @@ export default function DispositionTable({ rows, startIndex = 0, hideCodeColumns
         <tbody>
           {rows.map((row, i) => {
             const leadId = pick(row, ["lead_id", "leadId"]);
+            const dispCode = pick(row, ["disposition_code", "dispositionCode"]);
             return (
               <tr
                 key={i}
@@ -102,6 +104,17 @@ export default function DispositionTable({ rows, startIndex = 0, hideCodeColumns
                     content = <span className="text-xs text-gray-500">{fmtDate(val, true)}</span>;
                   } else if (col.type === "badge") {
                     content = <span className="badge bg-accent-light text-accent-dark">{String(val)}</span>;
+                  } else if (col.type === "dispositionBadge") {
+                    const tone = toneForCode(dispCode || val);
+                    content = (
+                      <span
+                        className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold"
+                        style={{ background: tone.bg, color: tone.text }}
+                      >
+                        <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: tone.dot }} />
+                        {String(val)}
+                      </span>
+                    );
                   } else if (col.type === "code") {
                     content = (
                       <span className="font-mono text-xs font-semibold text-gray-700">{String(val)}</span>

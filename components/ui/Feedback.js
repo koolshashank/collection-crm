@@ -24,12 +24,20 @@ export function ErrorState({ message = "Something went wrong.", onRetry }) {
   );
 }
 
-export function PageHeader({ title, subtitle, actions }) {
+export function PageHeader({ title, subtitle, actions, eyebrow, icon }) {
   return (
     <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-      <div>
-        <h1 className="font-display text-xl font-bold text-gray-800 sm:text-2xl">{title}</h1>
-        {subtitle && <p className="mt-0.5 text-sm text-gray-500">{subtitle}</p>}
+      <div className="flex items-center gap-3">
+        {icon && (
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-accent-light text-accent">
+            {icon}
+          </div>
+        )}
+        <div>
+          {eyebrow && <div className="mb-1">{eyebrow}</div>}
+          <h1 className="font-display text-xl font-bold text-gray-800 sm:text-2xl">{title}</h1>
+          {subtitle && <p className="mt-0.5 text-sm text-gray-500">{subtitle}</p>}
+        </div>
       </div>
       {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
     </div>

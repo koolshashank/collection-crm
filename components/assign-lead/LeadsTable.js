@@ -5,6 +5,7 @@ import Link from "next/link";
 import { EmptyState } from "@/components/ui/Feedback";
 import Spinner from "@/components/ui/Spinner";
 import { useToast } from "@/components/ui/Toast";
+import { avatarColor, initials, hexToRgba } from "@/lib/avatarColor";
 import { fmtInr, empId, empOptionLabel, leadKey } from "./format";
 
 /**
@@ -124,7 +125,7 @@ export default function LeadsTable({
                 {leads.map((row, i) => {
                   const key = String(leadKey(row));
                   const serial = (currentPage - 1) * limit + i + 1;
-                  const initials = String(row.full_name || "U").charAt(0).toUpperCase();
+                  const rowColor = avatarColor(row.full_name || key);
                   const status = rowStatus[key];
                   const isSelected = selected.has(key);
                   return (
@@ -147,14 +148,20 @@ export default function LeadsTable({
                       </td>
                       <td className="td text-xs text-gray-400">{serial}</td>
                       <td className="td">
-                        <span className="inline-block rounded-md bg-accent-light px-2 py-0.5 text-xs font-bold text-accent-dark">
+                        <span
+                          className="inline-block rounded-md px-2 py-0.5 text-xs font-bold"
+                          style={{ background: hexToRgba(rowColor, 0.12), color: rowColor }}
+                        >
                           {row.loan_id ?? "—"}
                         </span>
                       </td>
                       <td className="td">
                         <div className="flex items-center gap-2.5">
-                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-accent-light to-accent font-display text-xs font-bold text-white">
-                            {initials}
+                          <div
+                            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg font-display text-xs font-bold text-white"
+                            style={{ background: rowColor }}
+                          >
+                            {initials(row.full_name)}
                           </div>
                           <div className="min-w-0">
                             <div className="truncate font-semibold leading-tight text-gray-800">
@@ -193,8 +200,9 @@ export default function LeadsTable({
                             title="Assign this lead"
                             disabled={status === "loading" || status === "done"}
                             onClick={() => singleAssign(row)}
-                            className={`inline-flex items-center gap-1 whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-semibold text-white transition ${
-                              status === "done" ? "bg-emerald-700" : "bg-accent hover:bg-accent-dark"
+                            style={status === "done" ? undefined : { background: rowColor }}
+                            className={`inline-flex items-center gap-1 whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-semibold text-white transition hover:brightness-110 disabled:hover:brightness-100 ${
+                              status === "done" ? "bg-emerald-700" : ""
                             } disabled:cursor-not-allowed`}
                           >
                             {status === "loading" ? (

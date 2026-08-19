@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/ui/Toast";
-import { clientFetch } from "@/lib/clientFetch";
+import { clientFetch, postJson } from "@/lib/clientFetch";
 import { CiIcon } from "./icons";
 import { buildCopyText, ciSafe } from "./helpers";
 
@@ -73,6 +73,16 @@ export default function ActionChips({ flags, isClosed, pan, loan, onOpen }) {
     else toast.error(d.message || "Done");
   }
 
+  /* Every export of a customer's data (copy/print/screenshot) is logged —
+     admins get a real-time alert for it unless they did it themselves. */
+  function logSensitiveAction(action) {
+    postJson("/api/activity/log", {
+      action,
+      entity: { type: "lead", id: loan.lead_id ?? null },
+      meta: { loan_no: loan.loan_no ?? null },
+    }).catch(() => {});
+  }
+
   /* ── Copy details ── */
   async function copyDetails() {
     try {
@@ -81,6 +91,12 @@ export default function ActionChips({ flags, isClosed, pan, loan, onOpen }) {
     } catch {
       toast.success("Copied!");
     }
+    logSensitiveAction("copy_details");
+  }
+
+  function printPage() {
+    logSensitiveAction("print_page");
+    window.print();
   }
 
   return (
@@ -160,7 +176,7 @@ export default function ActionChips({ flags, isClosed, pan, loan, onOpen }) {
       >
         One Pager
       </Chip>
-      <Chip tone="slate" icon="print" onClick={() => window.print()} title="Print this page">
+      <Chip tone="slate" icon="print" onClick={printPage} title="Print this page">
         Print
       </Chip>
     </div>

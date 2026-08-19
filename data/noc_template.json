@@ -1,0 +1,17 @@
+{
+    "title": "NO OBJECTION CERTIFICATE",
+    "salutation": "Dear Mr. {fullName},",
+    "greeting": "Greetings!",
+    "paragraphs": [
+        "This is to certify that you have availed a loan facility bearing Loan Account Number {loanNo} from BlinkR Loan, a brand of RBI Registered NBFC: Dev-Aashish Capitals Private Limited.",
+        "We hereby confirm that the aforesaid loan account has been fully closed on {collDateDisp} upon receipt of the entire repayment amount due and payable against the said loan account as per Loan Agreement.",
+        "The amount of Rs. {collAmtDisp} was collected on {collDateDisp} against the said loan account.",
+        "As on date, there are no outstanding dues, liabilities, or obligations payable by you in respect of the above-mentioned loan account.",
+        "The Company has no objection to the closure of the said loan account.",
+        "This No Objection Certificate is issued at your request for your record and future reference."
+    ],
+    "closingRegards": "Regards,",
+    "closingTeam": "Team BlinkR Loan",
+    "closingCompany": "DEV-AASHISH CAPITALS PRIVATE LIMITED (NBFC)",
+    "updatedAt": "2026-08-19T12:32:50.711Z"
+}

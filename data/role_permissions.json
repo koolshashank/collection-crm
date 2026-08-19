@@ -117,7 +117,7 @@
         "ACM": false
     },
     "/reports": {
-        "ADMIN": false,
+        "ADMIN": true,
         "COLLECTION-HEAD": false,
         "COLLECTION-EXECUTIVE": false,
         "VISITOR": false,
@@ -297,6 +297,15 @@
         "ACM": false
     },
     "/role-permissions": {
+        "ADMIN": true,
+        "COLLECTION-HEAD": false,
+        "COLLECTION-EXECUTIVE": false,
+        "VISITOR": false,
+        "ACCOUNTS": false,
+        "RECOVERY_HEAD": false,
+        "ACM": false
+    },
+    "/two-factor-admin": {
         "ADMIN": true,
         "COLLECTION-HEAD": false,
         "COLLECTION-EXECUTIVE": false,

@@ -39,8 +39,12 @@ export function SectionLabel({ children, right }) {
 }
 
 /** Panel shell — mirror of .db-panel / .db-panel-head */
-export function Panel({ children, className = "" }) {
-  return <div className={`card overflow-hidden ${className}`}>{children}</div>;
+export function Panel({ children, className = "", onClick }) {
+  return (
+    <div className={`card overflow-hidden ${className}`} onClick={onClick}>
+      {children}
+    </div>
+  );
 }
 
 export function PanelHead({ title, link, right }) {

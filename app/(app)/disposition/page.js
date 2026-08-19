@@ -4,7 +4,8 @@ import { Suspense, useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { clientFetch } from "@/lib/clientFetch";
 import { PageLoader } from "@/components/ui/Spinner";
-import { EmptyState, ErrorState, PageHeader } from "@/components/ui/Feedback";
+import { EmptyState, ErrorState } from "@/components/ui/Feedback";
+import { CiIcon } from "@/components/client-info/icons";
 import DispositionCards from "@/components/disposition/DispositionCards";
 import DispositionCodeModal from "@/components/disposition/DispositionCodeModal";
 import DispositionTable from "@/components/disposition/DispositionTable";
@@ -68,15 +69,22 @@ function DispositionContent() {
 
   return (
     <>
-      <PageHeader
-        title="Disposition History"
-        subtitle="Every disposition recorded against loan accounts — click a card to drill into one code"
-        actions={
-          <button type="button" className="btn-secondary" onClick={load}>
-            Refresh
-          </button>
-        }
-      />
+      {/* Page header */}
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3.5">
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-accent-light text-accent-dark">
+            <CiIcon name="doc" size={22} strokeWidth={2} />
+          </span>
+          <div>
+            <h1 className="font-display text-xl font-bold text-gray-800 sm:text-2xl">Disposition History</h1>
+            <p className="mt-0.5 text-sm text-gray-500">Track and analyze all dispositions recorded against loan accounts</p>
+          </div>
+        </div>
+        <button type="button" className="btn-secondary" onClick={load}>
+          <CiIcon name="refresh" size={14} strokeWidth={2} />
+          Refresh
+        </button>
+      </div>
 
       {/* Per-code count cards */}
       <DispositionCards onSelect={setSelectedCard} activeCode={selectedCard?.code} />
@@ -90,17 +98,22 @@ function DispositionContent() {
         className="card mb-4 flex flex-wrap items-end gap-3 p-4"
       >
         <div className="min-w-[240px] flex-1">
-          <label className="label">Search</label>
-          <input
-            type="text"
-            className="input"
-            placeholder="Loan ID, name, mobile, agent…"
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-          />
+          <label className="label">Search Accounts</label>
+          <div className="relative">
+            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+              <CiIcon name="search" size={15} strokeWidth={2} />
+            </span>
+            <input
+              type="text"
+              className="input pl-9"
+              placeholder="Search by Loan ID, name, mobile, agent…"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+            />
+          </div>
         </div>
-        <div className="w-32">
-          <label className="label">Rows</label>
+        <div className="w-36">
+          <label className="label">Rows per page</label>
           <select
             className="input"
             value={limit}
@@ -115,6 +128,7 @@ function DispositionContent() {
         </div>
         <div className="flex gap-2">
           <button type="submit" className="btn-primary">
+            <CiIcon name="search" size={14} strokeWidth={2} />
             Search
           </button>
           {(searchParam || searchInput) && (
@@ -134,13 +148,40 @@ function DispositionContent() {
 
       <div className="card overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-2.5 border-b border-line px-5 py-4">
-          <h3 className="font-display text-base font-semibold text-gray-800">All Records</h3>
-          <div className="text-xs text-gray-500">
-            Showing{" "}
-            <strong className="text-gray-800">
-              {total === 0 ? 0 : (currentPage - 1) * limit + 1}–{Math.min(currentPage * limit, total)}
-            </strong>{" "}
-            of <strong className="text-gray-800">{total.toLocaleString("en-IN")}</strong>
+          <div className="flex items-center gap-2.5">
+            <h3 className="font-display text-base font-semibold text-gray-800">All Records</h3>
+            <span className="badge bg-accent-light font-bold text-accent-dark">
+              {total.toLocaleString("en-IN")} Total Records
+            </span>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="text-xs text-gray-500">
+              Showing{" "}
+              <strong className="text-gray-800">
+                {total === 0 ? 0 : (currentPage - 1) * limit + 1}–{Math.min(currentPage * limit, total)}
+              </strong>{" "}
+              of <strong className="text-gray-800">{total.toLocaleString("en-IN")}</strong>
+            </div>
+            {totalPages > 1 && (
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  disabled={currentPage <= 1}
+                  onClick={() => navigate({ page: currentPage - 1 })}
+                  className="flex h-7 w-7 items-center justify-center rounded-lg border-[1.5px] border-line bg-white text-sm text-gray-600 transition enabled:hover:border-accent enabled:hover:bg-accent-light enabled:hover:text-accent-dark disabled:pointer-events-none disabled:opacity-40"
+                >
+                  ‹
+                </button>
+                <button
+                  type="button"
+                  disabled={currentPage >= totalPages}
+                  onClick={() => navigate({ page: currentPage + 1 })}
+                  className="flex h-7 w-7 items-center justify-center rounded-lg border-[1.5px] border-line bg-white text-sm text-gray-600 transition enabled:hover:border-accent enabled:hover:bg-accent-light enabled:hover:text-accent-dark disabled:pointer-events-none disabled:opacity-40"
+                >
+                  ›
+                </button>
+              </div>
+            )}
           </div>
         </div>
 

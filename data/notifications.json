@@ -1,0 +1,19 @@
+[
+  {
+    "id": "1786971701796-7bp03w",
+    "ts": "2026-08-17T13:01:41.796Z",
+    "type": "sensitive_action",
+    "message": "Lalit Kumar copied their own login/API token.",
+    "actor": {
+      "user_id": 137,
+      "username": "lalit.kumar@blinkrloan.com",
+      "name": "Lalit Kumar",
+      "roles": [
+        "ACM"
+      ]
+    },
+    "entity": null,
+    "meta": {},
+    "read": true
+  }
+]

@@ -6,7 +6,7 @@ import { fmtInr, fmtDate, initials, avatarClass, STATUS_PILL_CLASS, STATUS_LABEL
 const HEAD = {
   approval: ["#", "Borrower", "Loan ID", "Outstanding", "Settlement Amt", "DPD", "Raised By", "Reason", "Date", "Action"],
   mine: ["#", "Borrower", "Loan ID", "Outstanding", "Settlement Amt", "DPD", "Status", "Admin Remarks", "Raised On", "Action"],
-  approved: ["#", "Borrower", "Loan ID", "Outstanding", "Settlement Amt", "DPD", "Approved On", "Letter Status", "Actions"],
+  approved: ["#", "Borrower", "Loan ID", "Outstanding", "Settlement Amt", "DPD", "Approved On", "Letter Status", "NDC Status", "Actions"],
   all: ["#", "Borrower", "Loan ID", "Outstanding", "Settlement Amt", "DPD", "Raised By", "Status", "Raised On", "Action"],
 };
 
@@ -33,7 +33,7 @@ function BorrowerCell({ row }) {
   );
 }
 
-export default function RequestsTable({ variant, rows, startIndex = 0, onReview, onView, onSendLetter }) {
+export default function RequestsTable({ variant, rows, startIndex = 0, onReview, onView, onSendLetter, onSendNdc }) {
   const head = HEAD[variant];
 
   if (!rows.length) {
@@ -105,9 +105,17 @@ export default function RequestsTable({ variant, rows, startIndex = 0, onReview,
                       {row.letterSent ? "Letter Sent" : "Not Sent"}
                     </span>
                   </td>
+                  <td>
+                    <span className={`${styles.pill} ${row.ndcSent ? styles.pillSent : styles.pillPending}`}>
+                      {row.ndcSent ? "NDC Sent" : "Not Sent"}
+                    </span>
+                  </td>
                   <td className={styles.actionCell}>
                     <button type="button" className={`${styles.btn} ${styles.btnInfo} ${styles.btnSm}`} onClick={() => onSendLetter(row)}>
                       {row.letterSent ? "View Letter" : "Send Letter"}
+                    </button>
+                    <button type="button" className={`${styles.btn} ${styles.btnInfo} ${styles.btnSm}`} onClick={() => onSendNdc(row)}>
+                      {row.ndcSent ? "View NDC" : "Send NDC"}
                     </button>
                     <button type="button" className={`${styles.btn} ${styles.btnGhost} ${styles.btnSm}`} onClick={() => onView(row)}>
                       View

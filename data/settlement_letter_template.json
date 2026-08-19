@@ -1,0 +1,20 @@
+{
+    "title": "LOAN SETTLEMENT LETTER",
+    "salutation": "Dear {borrowerName},",
+    "greeting": "We refer to your loan account and the settlement discussion held with our recovery team.",
+    "paragraphs": [
+        "This is to confirm that BlinkR Loan has agreed to settle the above-referenced loan account bearing Loan Account Number {loanNo} against a one-time settlement payment as detailed below, in full and final satisfaction of the outstanding dues on this loan, subject to receipt of the settlement amount on or before the settlement date mentioned."
+    ],
+    "tableLabels": {
+        "outstanding": "Outstanding Amount",
+        "settleType": "Settlement Type",
+        "waiver": "Waiver / Concession",
+        "settleDate": "Settlement Date",
+        "settleAmt": "Settlement Amount Payable"
+    },
+    "closingParagraph": "Upon realization of the settlement amount in full, your loan account will be marked as \"Settled\" and no further dues shall be payable by you against this loan. Please note that a settled account may be reported differently to credit bureaus than a fully closed account.",
+    "closingRegards": "Regards,",
+    "closingTeam": "Recovery & Collections Team",
+    "closingCompany": "BlinkR Loan",
+    "updatedAt": "2026-08-19T12:32:50.886Z"
+}

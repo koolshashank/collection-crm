@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getPendingSession, setSession, clearPendingSession } from "@/lib/session";
-import { getUserRecord } from "@/lib/twoFactorStore";
+import { getUserRecord, setUserRecord } from "@/lib/twoFactorStore";
 import { verifyCode } from "@/lib/twoFactor";
 import { logActivity } from "@/lib/auditLog";
 import { sendLoginAlertEmail } from "@/lib/loginAlert";
@@ -24,8 +24,12 @@ export async function POST(request) {
     );
   }
 
+  /* Enrolled users verify against their saved secret; a user still mid-setup
+     verifies against the not-yet-persisted secret sitting on the pending
+     session (see setup-2fa/route.js). */
   const record = getUserRecord(pending.user_id);
-  if (!record?.secret) {
+  const secret = record?.secret ?? pending.pendingSecret;
+  if (!secret) {
     return NextResponse.json(
       { success: false, message: "Please complete two-factor setup first." },
       { status: 400 }
@@ -33,7 +37,7 @@ export async function POST(request) {
   }
 
   const code = String(body?.code ?? "").trim();
-  if (!(await verifyCode(record.secret, code))) {
+  if (!(await verifyCode(secret, code))) {
     logActivity({
       session: pending,
       action: "login_failed",
@@ -45,8 +49,15 @@ export async function POST(request) {
     return NextResponse.json({ success: false, message: "Invalid code. Please try again." }, { status: 401 });
   }
 
-  setSession(pending);
+  /* First successful confirmation of a fresh setup — persist the secret now
+     that we know the user actually saved it in their authenticator app. */
+  if (!record?.secret && pending.pendingSecret) {
+    setUserRecord(pending.user_id, { secret: pending.pendingSecret, username: pending.username });
+  }
+
+  const { pendingSecret, ...sessionFields } = pending;
+  setSession(sessionFields);
   clearPendingSession();
-  logActivity({ session: pending, action: "login", category: "auth", meta: { two_fa: true } });
+  logActivity({ session: sessionFields, action: "login", category: "auth", meta: { two_fa: true } });
   return NextResponse.json({ success: true, redirect: "/dashboard" });
 }

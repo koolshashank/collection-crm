@@ -6,6 +6,7 @@ import { getSession } from "@/lib/session";
 import { uploadToS3 } from "@/lib/s3";
 import { saveNocLinkForCustomer } from "@/lib/noc/linkRecorder";
 import { buildNocPdf, nocClean, nocImagePaths, phpDate_dSpMY, phpNumberFormat, todayYmd } from "@/lib/noc/pdf";
+import { readEmailConfig } from "@/lib/emailConfig";
 import { logActivity } from "@/lib/auditLog";
 
 export const dynamic = "force-dynamic";
@@ -21,24 +22,10 @@ export const dynamic = "force-dynamic";
  * From/Reply-To, subject default, HTML body, AltBody, PDF attachment and
  * inline CID images are copied EXACTLY from the PHP.
  *
- * ══ ENV VARS (defaults = the PHP CONFIG constants) ══
- *   NOC_MAIL_FROM       — sender address        (PHP MAIL_FROM,      default noc@blinkrloan.com)
- *   NOC_MAIL_FROM_NAME  — sender display name   (PHP MAIL_FROM_NAME, default "Blinkr Loan Pvt. Ltd.")
- *   NOC_MAIL_REPLY_TO   — reply-to address      (PHP MAIL_REPLY_TO,  default support@blinkrloan.com)
- *   NOC_SMTP_HOST       — SMTP server           (PHP SMTP_HOST,      default smtp.netcorecloud.net)
- *   NOC_SMTP_PORT       — SMTP port             (PHP SMTP_PORT,      default 587)
- *   NOC_SMTP_USER       — SMTP username         (PHP SMTP_USER,      default blinkrloan_eapi)
- *   NOC_SMTP_PASS       — SMTP password         (PHP SMTP_PASS,      default f2b#69f239b3c)
- *   NOC_SMTP_SECURE     — "tls" = STARTTLS      (PHP SMTP_SECURE,    default tls)
+ * SMTP host/port/user/pass/from/reply-to all come from lib/emailConfig.js
+ * (Settings → Communication → Email Configure) — read fresh on every send
+ * so a password change takes effect immediately, no redeploy needed.
  */
-const MAIL_FROM = process.env.NOC_MAIL_FROM || "noc@blinkrloan.com";
-const MAIL_FROM_NAME = process.env.NOC_MAIL_FROM_NAME || "Blinkr Loan Pvt. Ltd.";
-const MAIL_REPLY_TO = process.env.NOC_MAIL_REPLY_TO || "support@blinkrloan.com";
-const SMTP_HOST = process.env.NOC_SMTP_HOST || "smtp.netcorecloud.net";
-const SMTP_PORT = parseInt(process.env.NOC_SMTP_PORT || "587", 10);
-const SMTP_USER = process.env.NOC_SMTP_USER || "blinkrloan_eapi";
-const SMTP_PASS = process.env.NOC_SMTP_PASS || "f2b#69f239b3c";
-const SMTP_SECURE = process.env.NOC_SMTP_SECURE || "tls"; // 'tls' => STARTTLS on 587 (PHPMailer SMTPSecure='tls')
 
 /** em_date(): PHP date('d M Y') with '—' fallback. */
 const emDate = (d) => phpDate_dSpMY(d, "—");
@@ -189,12 +176,23 @@ export async function POST(request) {
 
     /* ── Attachments: PDF + inline CID images (addEmbeddedImage equivalents) ── */
     const imgs = nocImagePaths();
+    const extForMime = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" };
     const attachments = [{ filename, content: pdfBuffer, contentType: "application/pdf" }];
     if (imgs.header) {
-      attachments.push({ filename: "noc_header.jpg", path: imgs.header, cid: "noc_header", contentType: "image/jpeg" });
+      attachments.push({
+        filename: "noc_header." + (extForMime[imgs.headerMime] || "jpg"),
+        path: imgs.header,
+        cid: "noc_header",
+        contentType: imgs.headerMime,
+      });
     }
     if (imgs.footer) {
-      attachments.push({ filename: "noc_footer.jpg", path: imgs.footer, cid: "noc_footer", contentType: "image/jpeg" });
+      attachments.push({
+        filename: "noc_footer." + (extForMime[imgs.footerMime] || "jpg"),
+        path: imgs.footer,
+        cid: "noc_footer",
+        contentType: imgs.footerMime,
+      });
     }
     if (imgs.logo) {
       attachments.push({ filename: "Logo_BlinkR.png", path: imgs.logo, cid: "blinkr_logo", contentType: "image/png" });
@@ -204,12 +202,13 @@ export async function POST(request) {
     let emailSent = false;
     let errorMsg = "";
     try {
+      const emailCfg = readEmailConfig();
       const transporter = nodemailer.createTransport({
-        host: SMTP_HOST,
-        port: SMTP_PORT,
-        secure: SMTP_SECURE === "ssl", // 'tls' => STARTTLS (secure:false + requireTLS)
-        requireTLS: SMTP_SECURE === "tls",
-        auth: { user: SMTP_USER, pass: SMTP_PASS },
+        host: emailCfg.host,
+        port: emailCfg.port,
+        secure: emailCfg.secure === "ssl", // 'tls' => STARTTLS (secure:false + requireTLS)
+        requireTLS: emailCfg.secure === "tls",
+        auth: { user: emailCfg.user, pass: emailCfg.pass },
         tls: {
           // Mirrors PHPMailer SMTPOptions: verify_peer/verify_peer_name false, allow_self_signed true
           rejectUnauthorized: false,
@@ -217,8 +216,8 @@ export async function POST(request) {
       });
 
       await transporter.sendMail({
-        from: { name: MAIL_FROM_NAME, address: MAIL_FROM },
-        replyTo: { name: MAIL_FROM_NAME, address: MAIL_REPLY_TO },
+        from: { name: emailCfg.fromName, address: emailCfg.fromAddress },
+        replyTo: { name: emailCfg.fromName, address: emailCfg.replyTo },
         to: { name: fullName, address: toEmail },
         subject,
         html: emailHtml,

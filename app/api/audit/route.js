@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/session";
-import { queryAuditLog } from "@/lib/auditLog";
+import { queryAuditLog, getAuditStats } from "@/lib/auditLog";
 
 export const dynamic = "force-dynamic";
 
 /**
  * /api/audit — project-wide employee activity trail.
- * GET ?employeeId=&action=&category=&from=&to=&page=&limit=
+ * GET ?employeeId=&action=&category=&from=&to=&search=&page=&limit= → paginated entries
+ * GET ?mode=stats → all-time headline numbers for the stat cards
  * Admin only (ADMIN / COLLECTION-HEAD / RECOVERY_HEAD).
  */
 function isAdminUser(session) {
@@ -24,12 +25,18 @@ export async function GET(request) {
   }
 
   const sp = new URL(request.url).searchParams;
+
+  if (sp.get("mode") === "stats") {
+    return NextResponse.json({ success: true, stats: getAuditStats() });
+  }
+
   const result = queryAuditLog({
     employeeId: sp.get("employeeId") || undefined,
     action: sp.get("action") || undefined,
     category: sp.get("category") || undefined,
     from: sp.get("from") || undefined,
     to: sp.get("to") || undefined,
+    search: sp.get("search") || undefined,
     page: Number(sp.get("page")) || 1,
     limit: Math.min(Number(sp.get("limit")) || 50, 200),
   });

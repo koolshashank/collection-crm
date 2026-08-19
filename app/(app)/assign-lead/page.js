@@ -5,8 +5,9 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { clientFetch } from "@/lib/clientFetch";
 import { PageLoader } from "@/components/ui/Spinner";
-import { ErrorState, PageHeader, StatCard } from "@/components/ui/Feedback";
+import { ErrorState, PageHeader } from "@/components/ui/Feedback";
 import { useToast } from "@/components/ui/Toast";
+import { CiIcon } from "@/components/client-info/icons";
 import BulkUploadPanel from "@/components/assign-lead/BulkUploadPanel";
 import RoundRobinCard from "@/components/assign-lead/RoundRobinCard";
 import BulkAssignBar from "@/components/assign-lead/BulkAssignBar";
@@ -33,7 +34,23 @@ function AssignLeadContent() {
   const [selected, setSelected] = useState(new Set());
   const [rowStatus, setRowStatus] = useState({}); // leadId -> "loading" | "done"
   const [bulkSubmitting, setBulkSubmitting] = useState(false);
+  const [roundRobinEnabled, setRoundRobinEnabled] = useState(true);
+  const [bulkPanelOpen, setBulkPanelOpen] = useState(false);
   const empLoaded = useRef(false);
+  const bulkPanelRef = useRef(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const res = await clientFetch("/api/config/round-robin");
+      if (!cancelled && res.ok && res.data?.success) {
+        setRoundRobinEnabled(Boolean(res.data.config?.enabled ?? true));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -158,15 +175,35 @@ function AssignLeadContent() {
   return (
     <>
       <PageHeader
+        eyebrow={
+          <Link
+            href="/leads"
+            className="inline-flex items-center gap-1 text-xs font-semibold text-gray-400 transition hover:text-accent-dark"
+          >
+            <CiIcon name="back" size={12} strokeWidth={2.5} />
+            All Leads
+          </Link>
+        }
         title="Assign Leads"
         subtitle="Assign unallocated loan accounts to collection executives"
         actions={
           <>
-            <Link href="/leads" className="btn-secondary">
-              ‹ All Leads
-            </Link>
             <button type="button" className="btn-secondary" onClick={load}>
+              <CiIcon name="refresh" size={14} strokeWidth={2.2} />
               Refresh
+            </button>
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={() => {
+                setBulkPanelOpen(true);
+                requestAnimationFrame(() =>
+                  bulkPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+                );
+              }}
+            >
+              <CiIcon name="download" size={14} strokeWidth={2.2} />
+              Bulk CSV Upload
             </button>
           </>
         }
@@ -184,13 +221,42 @@ function AssignLeadContent() {
 
       {/* Summary strip */}
       <div className="mb-4 grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
-        <StatCard label="Unassigned Leads" value={total.toLocaleString("en-IN")} icon="👥" tone="accent" />
-        <StatCard label="Available Agents" value={employees.length.toLocaleString("en-IN")} icon="🧑‍💼" />
-        <StatCard label="Total Pages" value={totalPages.toLocaleString("en-IN")} icon="📅" tone="info" />
+        <div className="card flex items-center gap-3.5 p-4">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-accent-light text-accent">
+            <CiIcon name="users" size={19} strokeWidth={1.8} />
+          </div>
+          <div className="min-w-0">
+            <p className="truncate text-[11px] font-bold uppercase tracking-wider text-gray-400">Unassigned Leads</p>
+            <p className="truncate text-xl font-bold text-gray-800">{total.toLocaleString("en-IN")}</p>
+            <p className="truncate text-[11px] text-gray-400">Loan accounts waiting for an agent</p>
+          </div>
+        </div>
+        <div className="card flex items-center gap-3.5 p-4">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#3b6ea51a] text-info">
+            <CiIcon name="headset" size={18} strokeWidth={1.8} />
+          </div>
+          <div className="min-w-0">
+            <p className="truncate text-[11px] font-bold uppercase tracking-wider text-gray-400">Available Agents</p>
+            <p className="truncate text-xl font-bold text-gray-800">{employees.length.toLocaleString("en-IN")}</p>
+            <p className="truncate text-[11px] text-gray-400">Employees who can receive leads</p>
+          </div>
+        </div>
+        <div className="card flex items-center gap-3.5 p-4">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#7c3aed1a] text-[#7c3aed]">
+            <CiIcon name="cal" size={18} strokeWidth={1.8} />
+          </div>
+          <div className="min-w-0">
+            <p className="truncate text-[11px] font-bold uppercase tracking-wider text-gray-400">Total Pages</p>
+            <p className="truncate text-xl font-bold text-gray-800">{totalPages.toLocaleString("en-IN")}</p>
+            <p className="truncate text-[11px] text-gray-400">{LIMIT} leads shown per page</p>
+          </div>
+        </div>
       </div>
 
       {/* Bulk CSV Upload */}
-      <BulkUploadPanel onUploaded={load} />
+      <div ref={bulkPanelRef}>
+        <BulkUploadPanel open={bulkPanelOpen} onToggle={setBulkPanelOpen} onUploaded={load} />
+      </div>
 
       {/* Toolbar / search */}
       <form
@@ -202,10 +268,7 @@ function AssignLeadContent() {
         <div className="card mb-4 flex flex-wrap items-center gap-2.5 p-3.5">
           <div className="relative min-w-[220px] flex-1">
             <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4">
-                <circle cx="11" cy="11" r="8" />
-                <line x1="21" y1="21" x2="16.65" y2="16.65" />
-              </svg>
+              <CiIcon name="search" size={16} strokeWidth={2} />
             </span>
             <input
               type="text"
@@ -218,17 +281,19 @@ function AssignLeadContent() {
           </div>
           <div className="hidden h-7 w-px shrink-0 bg-line sm:block" />
           <button type="submit" className="btn-primary">
+            <CiIcon name="search" size={14} strokeWidth={2.2} />
             Search
           </button>
           {search && (
             <button
               type="button"
-              className="btn-danger"
+              className="btn-secondary"
               onClick={() => {
                 setSearchInput("");
                 navigate({ page: 1, search: "" });
               }}
             >
+              <CiIcon name="x" size={14} strokeWidth={2.2} />
               Clear
             </button>
           )}
@@ -244,8 +309,31 @@ function AssignLeadContent() {
         onDeselectAll={() => setSelected(new Set())}
       />
 
-      {/* Round Robin Distribution */}
-      <RoundRobinCard onDistributed={load} />
+      {/* Round Robin Distribution — hidden when an admin has turned it off in Settings */}
+      {roundRobinEnabled ? (
+        <RoundRobinCard onDistributed={load} />
+      ) : (
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border-[1.5px] border-amber bg-amber/10 px-4 py-3.5">
+          <div className="flex items-start gap-3">
+            <span className="mt-0.5 shrink-0 text-amber">
+              <CiIcon name="warn" size={16} strokeWidth={2} />
+            </span>
+            <div>
+              <div className="text-sm font-bold text-amber">Round Robin Distribution is off</div>
+              <div className="mt-0.5 text-xs leading-relaxed text-gray-600">
+                Leads must be assigned manually below. An admin can re-enable auto-distribution from Settings.
+              </div>
+            </div>
+          </div>
+          <Link
+            href="/settings"
+            title="Open Settings"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-amber/40 text-amber transition hover:bg-amber/10"
+          >
+            <CiIcon name="settings" size={15} strokeWidth={2} />
+          </Link>
+        </div>
+      )}
 
       {/* Table */}
       {loading ? (

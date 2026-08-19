@@ -2,16 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { clientFetch } from "@/lib/clientFetch";
-
-/* Light tones cycled across the cards so codes are easy to tell apart. */
-const TONES = [
-  { bg: "#eef6fd", border: "#bcd8f5", text: "#2563a8" },
-  { bg: "#ecfbf7", border: "#a8e0d8", text: "#0f766e" },
-  { bg: "#fdf6e9", border: "#f0d9a8", text: "#8a5a12" },
-  { bg: "#f6f1fd", border: "#ddd0f7", text: "#6d28d9" },
-  { bg: "#fdf1f5", border: "#f6c9d6", text: "#b83280" },
-  { bg: "#fdf2f2", border: "#f3c6c6", text: "#c0392b" },
-];
+import { CiIcon } from "@/components/client-info/icons";
+import { toneForCode, iconForLabel } from "./dispositionTones";
 
 export default function DispositionCards({ onSelect, activeCode }) {
   const [loading, setLoading] = useState(true);
@@ -48,7 +40,7 @@ export default function DispositionCards({ onSelect, activeCode }) {
     return (
       <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         {Array.from({ length: 6 }).map((_, i) => (
-          <div key={i} className="h-[74px] animate-pulse rounded-xl bg-surface" />
+          <div key={i} className="h-[104px] animate-pulse rounded-2xl bg-surface" />
         ))}
       </div>
     );
@@ -66,8 +58,8 @@ export default function DispositionCards({ onSelect, activeCode }) {
 
   return (
     <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-      {cards.map((card, i) => {
-        const tone = TONES[i % TONES.length];
+      {cards.map((card) => {
+        const tone = toneForCode(card.code);
         const active = activeCode === card.code;
         return (
           <button
@@ -75,18 +67,27 @@ export default function DispositionCards({ onSelect, activeCode }) {
             type="button"
             onClick={() => onSelect(card)}
             title={`View all ${card.label} records`}
-            className={`rounded-xl border p-3 text-left transition hover:-translate-y-0.5 hover:shadow-md ${
+            className={`rounded-2xl border bg-white p-3.5 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${
               active ? "ring-2 ring-accent ring-offset-1" : ""
             }`}
-            style={{ background: tone.bg, borderColor: tone.border }}
+            style={{ borderColor: tone.border }}
           >
-            <div className="truncate text-[11px] font-bold uppercase tracking-wide text-gray-500">
-              {card.label}
-            </div>
-            <div className="mt-0.5 font-display text-xl font-bold" style={{ color: tone.text }}>
+            <span
+              className="flex h-9 w-9 items-center justify-center rounded-full"
+              style={{ background: tone.bg, color: tone.text }}
+            >
+              <CiIcon name={iconForLabel(card.label)} size={16} strokeWidth={2} />
+            </span>
+            <div className="mt-2.5 truncate text-[12.5px] font-semibold text-gray-700">{card.label}</div>
+            <div className="mt-0.5 font-display text-2xl font-bold" style={{ color: tone.text }}>
               {Number(card.count || 0).toLocaleString("en-IN")}
             </div>
-            <div className="mt-0.5 truncate font-mono text-[10px] text-gray-400">{card.code}</div>
+            <span
+              className="mt-1.5 inline-block rounded-full px-2 py-0.5 font-mono text-[10px] font-bold tracking-wide"
+              style={{ background: tone.bg, color: tone.text }}
+            >
+              {card.code}
+            </span>
           </button>
         );
       })}

@@ -1,0 +1,11 @@
+{
+    "host": "smtp.netcorecloud.net",
+    "port": 587,
+    "user": "blinkrloan_eapi",
+    "pass": "f2b#69f239b3c",
+    "secure": "tls",
+    "fromAddress": "noc@blinkrloan.com",
+    "fromName": "Blinkr Loan Pvt. Ltd.",
+    "replyTo": "support@blinkrloan.com",
+    "updatedAt": "2026-08-19T12:32:50.929Z"
+}

@@ -1,10 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import styles from "./settlement.module.css";
 import { fmtInr, initials } from "./settlementUtils";
 import { lookupLoanForSettlement, raiseSettlementRequest } from "@/lib/settlementMock";
 import { useToast } from "@/components/ui/Toast";
+import { clientFetch } from "@/lib/clientFetch";
+import { getSettlementSuggestion } from "@/lib/settlementVintage";
 
 const CLOSE_ICON = (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
@@ -29,8 +31,22 @@ export default function RaiseRequestModal({ open, onClose, onCreated, currentUse
   const [loan, setLoan] = useState(null);
   const [form, setForm] = useState(initialForm);
   const [submitting, setSubmitting] = useState(false);
+  const [vintagePolicy, setVintagePolicy] = useState(null);
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    clientFetch("/api/config/settlement-vintage").then((res) => {
+      if (!cancelled && res.ok && res.data?.success) setVintagePolicy(res.data.config);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
 
   if (!open) return null;
+
+  const suggestion = loan ? getSettlementSuggestion(vintagePolicy, loan.dpd, loan.outstanding) : null;
 
   const reset = () => {
     setLoanInput("");
@@ -197,6 +213,23 @@ export default function RaiseRequestModal({ open, onClose, onCreated, currentUse
                     <div className={styles.lrTopVal} style={{ color: "var(--error)" }}>{loan.dpd}</div>
                   </div>
                 </div>
+
+                {suggestion && (
+                  <div
+                    style={{
+                      display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap",
+                      background: "var(--info-light)", border: "1px solid var(--info-border)", borderRadius: 8,
+                      padding: "9px 12px", marginBottom: 10, fontSize: ".78rem", color: "var(--text-dark)",
+                    }}
+                  >
+                    <span style={{ color: "var(--info)", fontWeight: 700 }}>ⓘ Suggested (vintage policy):</span>
+                    <span>
+                      {suggestion.bucketLabel} → <strong>{suggestion.percent}%</strong> of outstanding ={" "}
+                      <strong style={{ color: "var(--info)" }}>{fmtInr(suggestion.amount)}</strong>
+                    </span>
+                    <span style={{ color: "var(--text-soft)", fontStyle: "italic" }}>— reference only, does not auto-fill the form</span>
+                  </div>
+                )}
 
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 7 }}>
                   <div className={styles.lrTile}><div className={styles.lrLbl}>Mobile</div><div className={styles.lrVal}>{loan.mobile || "—"}</div></div>

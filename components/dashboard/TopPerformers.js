@@ -13,6 +13,7 @@ import {
   WidgetLoading,
   useApi,
 } from "./shared";
+import QuickActions from "./QuickActions";
 
 /* Same rank colouring as tp_rank_class() */
 const RANK_CLASS = ["text-amber", "text-slate-400", "text-orange-600"];
@@ -229,7 +230,7 @@ export default function TopPerformers() {
         Top Performers &amp; Non-Performers
       </SectionLabel>
 
-      <div className="mb-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <div className="mb-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
         <Panel>
           <PanelHead
             title={
@@ -288,6 +289,8 @@ export default function TopPerformers() {
           />
           {body(bottom5, true)}
         </Panel>
+
+        <QuickActions />
       </div>
     </>
   );

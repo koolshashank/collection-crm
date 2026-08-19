@@ -6,6 +6,21 @@ import LetterPreview from "./LetterPreview";
 import { sendSettlementLetter } from "@/lib/settlementMock";
 import { useToast } from "@/components/ui/Toast";
 
+/* Loan/borrower fields the real generate & email routes need — same shape
+   for both calls, built once per send/download. */
+function letterPayload(row) {
+  return {
+    loanNo: row.loanNo,
+    borrowerName: row.borrowerName,
+    mobile: row.mobile,
+    outstanding: row.outstanding,
+    settleType: row.settleType,
+    waiver: row.waiver,
+    settleDate: row.settleDate,
+    settleAmt: row.settleAmt,
+  };
+}
+
 const CLOSE_ICON = (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
     <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
@@ -17,6 +32,7 @@ export default function LetterModal({ open, row, onClose, onSent }) {
   const [email, setEmail] = useState("");
   const [subject, setSubject] = useState("Loan Settlement Letter — BlinkR Loan");
   const [sending, setSending] = useState(false);
+  const [downloading, setDownloading] = useState(false);
 
   useEffect(() => {
     if (open && row) setEmail(row.email || row.letterSentTo || "");
@@ -24,8 +40,31 @@ export default function LetterModal({ open, row, onClose, onSent }) {
 
   if (!open || !row) return null;
 
-  const download = () => {
-    toast.info("Demo mode — connect the settlement API to generate a real PDF.");
+  const download = async () => {
+    setDownloading(true);
+    try {
+      const res = await fetch("/api/settlement/letter/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(letterPayload(row)),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        toast.error(err.message || "Could not generate the letter PDF.");
+        return;
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Settlement_Letter_${row.loanNo}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast.error("Network error — could not generate the letter PDF.");
+    } finally {
+      setDownloading(false);
+    }
   };
 
   const send = async () => {
@@ -34,13 +73,26 @@ export default function LetterModal({ open, row, onClose, onSent }) {
       return;
     }
     setSending(true);
-    const res = await sendSettlementLetter(row.id, email, subject);
-    setSending(false);
-    if (res.success) {
-      toast.success(`Demo mode — marked as sent to ${email}. Connect the settlement API to send a real email.`);
-      onSent(res.row);
-    } else {
-      toast.error(res.message || "Could not send letter.");
+    try {
+      const res = await fetch("/api/settlement/letter/email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...letterPayload(row), toEmail: email, subject }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        toast.error(data.message || "Could not send letter.");
+        return;
+      }
+      // Real email is already sent above — this just keeps the mock
+      // settlement list's "Letter Sent" bookkeeping in sync.
+      const marked = await sendSettlementLetter(row.id, email, subject);
+      toast.success(data.message || `Letter emailed to ${email}`);
+      onSent(marked.success ? marked.row : row);
+    } catch {
+      toast.error("Network error — could not send the letter.");
+    } finally {
+      setSending(false);
     }
   };
 
@@ -86,11 +138,11 @@ export default function LetterModal({ open, row, onClose, onSent }) {
           <button type="button" className={`${styles.btn} ${styles.btnGhost}`} onClick={onClose}>
             Close
           </button>
-          <button type="button" className={`${styles.btn} ${styles.btnSettle}`} onClick={download}>
+          <button type="button" className={`${styles.btn} ${styles.btnSettle}`} onClick={download} disabled={downloading}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" />
             </svg>
-            Download PDF
+            {downloading ? "Generating…" : "Download PDF"}
           </button>
           <button type="button" className={`${styles.btn} ${styles.btnSuccess}`} onClick={send} disabled={sending}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

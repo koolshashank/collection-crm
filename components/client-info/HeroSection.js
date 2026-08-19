@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { CiIcon } from "./icons";
 import { ciInitials, ciSafe, ciInr, DPD_SEGS, dpdFilledSegs } from "./helpers";
 
@@ -8,8 +9,13 @@ import { ciInitials, ciSafe, ciInr, DPD_SEGS, dpdFilledSegs } from "./helpers";
  * 1:1 port of the .ci-hero block in client_info.php.
  */
 export default function HeroSection({ loan, leadId, statusMeta, priority }) {
+  const [photoFailed, setPhotoFailed] = useState(false);
   const dpdNum = Number(loan.overdue_days) || 0;
   const filled = dpdFilledSegs(dpdNum);
+  /* No dedicated customer selfie exists in this system — the closest thing on
+     record is the Aadhaar card scan (which has a small ID photo on it), so
+     that's what we show here, with the initials tile as a graceful fallback. */
+  const showPhoto = Boolean(leadId) && !photoFailed;
 
   const kpis = [
     { label: "Loan Amount", value: ciInr(loan.loan_amount ?? 0), tone: "" },
@@ -32,8 +38,17 @@ export default function HeroSection({ loan, leadId, statusMeta, priority }) {
           >
             <CiIcon name="back" strokeWidth={2} />
           </button>
-          <div className="flex h-[54px] w-[54px] shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-accent to-accent-dark font-display text-xl font-bold text-white shadow-lg shadow-accent/30">
-            {ciInitials(loan.full_name ?? "")}
+          <div className="relative flex h-[54px] w-[54px] shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-accent to-accent-dark font-display text-xl font-bold text-white shadow-lg shadow-accent/30 ring-2 ring-white/15">
+            {showPhoto ? (
+              <img
+                src={`/api/docs/aadhar?lead_id=${encodeURIComponent(leadId)}`}
+                alt=""
+                className="absolute inset-0 h-full w-full object-cover object-left"
+                onError={() => setPhotoFailed(true)}
+              />
+            ) : (
+              ciInitials(loan.full_name ?? "")
+            )}
           </div>
           <div>
             <div className="font-display text-xl leading-tight text-white sm:text-2xl">

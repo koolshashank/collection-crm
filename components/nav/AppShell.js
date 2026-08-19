@@ -5,6 +5,9 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import Icon from "./Icon";
 import { visibleSections } from "./menuConfig";
+import NotificationBell from "./NotificationBell";
+import GlobalSearch from "./GlobalSearch";
+import ChangePasswordModal from "./ChangePasswordModal";
 import { ToastProvider } from "@/components/ui/Toast";
 import { postJson } from "@/lib/clientFetch";
 import { useCompanyConfig } from "@/components/company/CompanyConfigProvider";
@@ -143,10 +146,12 @@ export default function AppShell({ user, children, rolePermissions }) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const menuConfig = useMenuConfig();
   const profileRef = useRef(null);
 
   const roles = user?.roles || [];
+  const isAdmin = roles.includes("ADMIN");
   const roleLabel = roles.length
     ? roles[0].toLowerCase().replace(/[-_]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
     : "Staff";
@@ -223,35 +228,48 @@ export default function AppShell({ user, children, rolePermissions }) {
           <Icon name="menu" size={17} />
         </button>
 
-        <div className="flex flex-1 items-center justify-end gap-2 sm:gap-3">
-          <TimerWidget />
-          <div className="relative" ref={profileRef}>
-            <button
-              onClick={() => setProfileOpen((o) => !o)}
-              className="flex items-center gap-2.5 rounded-full border border-white/15 bg-white/5 py-1 pl-1 pr-3 transition hover:bg-white/10"
-            >
-              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-accent text-xs font-bold text-white">
-                {initials}
-              </span>
-              <span className="hidden flex-col items-start leading-tight sm:flex">
-                <span className="max-w-[140px] truncate text-xs font-semibold text-white">{user?.name}</span>
-                <span className="text-[10px] uppercase tracking-wide text-white/50">{roleLabel}</span>
-              </span>
-              <Icon name="chevron" size={13} className="text-white/50" />
-            </button>
-            {profileOpen && (
-              <div className="absolute right-0 top-[calc(100%+8px)] z-[300] w-52 overflow-hidden rounded-xl border border-line bg-white py-1.5 shadow-pop">
-                <Link href="/role-permissions" className="flex items-center gap-2.5 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
-                  <Icon name="sliders" size={15} /> Role Permissions
-                </Link>
-                <button
-                  onClick={logout}
-                  className="flex w-full items-center gap-2.5 px-4 py-2 text-left text-sm text-danger hover:bg-red-50"
-                >
-                  <Icon name="logout" size={15} /> Sign Out
-                </button>
-              </div>
-            )}
+        <div className="flex flex-1 items-center gap-2 sm:gap-3">
+          <GlobalSearch />
+          <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+            {isAdmin && <NotificationBell />}
+            <TimerWidget />
+            <div className="relative" ref={profileRef}>
+              <button
+                onClick={() => setProfileOpen((o) => !o)}
+                className="flex items-center gap-2.5 rounded-full border border-white/15 bg-white/5 py-1 pl-1 pr-3 transition hover:bg-white/10"
+              >
+                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-accent text-xs font-bold text-white">
+                  {initials}
+                </span>
+                <span className="hidden flex-col items-start leading-tight sm:flex">
+                  <span className="max-w-[140px] truncate text-xs font-semibold text-white">{user?.name}</span>
+                  <span className="text-[10px] uppercase tracking-wide text-white/50">{roleLabel}</span>
+                </span>
+                <Icon name="chevron" size={13} className="text-white/50" />
+              </button>
+              {profileOpen && (
+                <div className="absolute right-0 top-[calc(100%+8px)] z-[300] w-52 overflow-hidden rounded-xl border border-line bg-white py-1.5 shadow-pop">
+                  <Link href="/role-permissions" className="flex items-center gap-2.5 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                    <Icon name="sliders" size={15} /> Role Permissions
+                  </Link>
+                  <button
+                    onClick={() => {
+                      setProfileOpen(false);
+                      setChangePasswordOpen(true);
+                    }}
+                    className="flex w-full items-center gap-2.5 px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+                  >
+                    <Icon name="lock" size={15} /> Change Password
+                  </button>
+                  <button
+                    onClick={logout}
+                    className="flex w-full items-center gap-2.5 px-4 py-2 text-left text-sm text-danger hover:bg-red-50"
+                  >
+                    <Icon name="logout" size={15} /> Sign Out
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </header>
@@ -306,10 +324,18 @@ export default function AppShell({ user, children, rolePermissions }) {
 
       {/* ===== MAIN ===== */}
       <main
-        className={`min-h-screen pt-16 transition-all duration-300 ${collapsed ? "lg:pl-16" : "lg:pl-60"}`}
+        className={`flex min-h-screen flex-col pt-16 transition-all duration-300 ${collapsed ? "lg:pl-16" : "lg:pl-60"}`}
       >
-        <div className="p-4 sm:p-6">{children}</div>
+        <div className="flex-1 p-4 sm:p-6">{children}</div>
+
+        {/* ===== FOOTER ===== */}
+        <footer className="border-t border-white/10 bg-navy px-4 py-4 text-center text-xs text-white/50 sm:px-6">
+          © {new Date().getFullYear()} <span className="font-semibold text-white/80">{appName}</span>
+          {tagline ? ` — ${tagline}` : ""}. All rights reserved.
+        </footer>
       </main>
+
+      <ChangePasswordModal open={changePasswordOpen} onClose={() => setChangePasswordOpen(false)} />
     </ToastProvider>
   );
 }

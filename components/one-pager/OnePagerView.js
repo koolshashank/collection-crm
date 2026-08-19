@@ -1,88 +1,141 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { clientFetch } from "@/lib/clientFetch";
 import { PageLoader } from "@/components/ui/Spinner";
 import { ErrorState } from "@/components/ui/Feedback";
 import { useToast } from "@/components/ui/Toast";
-import { InfoField } from "@/components/client-info/SectionCard";
-import { CiIcon } from "@/components/client-info/icons";
-import { ciSafe, ciDate, ciInr, getStatusMeta, getRoleFlags } from "@/components/client-info/helpers";
+import { CiIcon, WhatsAppIcon } from "@/components/client-info/icons";
+import {
+  ciSafe,
+  ciDate,
+  ciInr,
+  ciInitials,
+  getStatusMeta,
+  getPriority,
+  getRoleFlags,
+} from "@/components/client-info/helpers";
+import ClosedCelebration from "@/components/client-info/ClosedCelebration";
 import BlockPanModal from "@/components/client-info/BlockPanModal";
 import PayLinkModal from "@/components/client-info/PayLinkModal";
 import UpdatePaymentModal from "@/components/client-info/UpdatePaymentModal";
 import CollectionLogsModal from "@/components/client-info/CollectionLogsModal";
-import PtpSection from "@/components/client-info/PtpSection";
-import InsightTab from "@/components/one-pager/InsightTab";
+import CallModal from "@/components/leads/CallModal";
+import WhatsAppChatModal from "@/components/integrations/WhatsAppChatModal";
+import UpiModal from "@/components/client-info/UpiModal";
+import AddNoteModal from "./AddNoteModal";
 
-const TABS = [
-  { key: "personal", label: "Personal Info" },
-  { key: "loan", label: "Loan & Repayment" },
-  { key: "ptp", label: "PTP History" },
-  { key: "docs", label: "Documents & History" },
-  { key: "insight", label: "Insight" },
-];
+const PAGE_SETTINGS_DEFAULTS = { showUpiReference: true, maskSensitiveData: false };
 
-/** Small icon+label pill button — same visual language as the client-info ActionChips. */
-function OpChip({ tone, icon, children, onClick, disabled, title }) {
-  const tones = {
-    teal: "bg-accent-light text-accent-dark hover:bg-accent hover:text-white",
-    slate: "bg-[#eef1f5] text-gray-600 hover:bg-navy hover:text-white",
-    amber: "bg-[#fdf3e3] text-[#8a5a12] hover:bg-amber hover:text-white",
-    red: "bg-[#fbeaea] text-[#9c2b2b] hover:bg-danger hover:text-white",
-    green: "bg-[#e8f5f0] text-[#14532d] hover:bg-[#1E7E5E] hover:text-white",
-  };
-  const icTones = {
-    teal: "bg-accent text-white",
-    slate: "bg-gray-500 text-white",
-    amber: "bg-amber text-white",
-    red: "bg-danger text-white",
-    green: "bg-[#1E7E5E] text-white",
-  };
+/** Masks all but the last `keep` characters — e.g. "••••••3210". */
+function maskValue(v, keep = 4) {
+  const s = String(v ?? "").trim();
+  if (!s) return s;
+  if (s.length <= keep) return "•".repeat(s.length);
+  return "•".repeat(s.length - keep) + s.slice(-keep);
+}
+
+/* ── Activity categorisation — same scheme as the old Insight tab ── */
+const CATEGORY_META = {
+  payments: { color: "#0f9b8e", icon: "card" },
+  ptp: { color: "#7c3aed", icon: "cal" },
+  field: { color: "#3b6ea5", icon: "user" },
+  status: { color: "#1E7E5E", icon: "check" },
+  disposition: { color: "#e8a33d", icon: "doc" },
+  default: { color: "#6b7280", icon: "warn" },
+};
+
+function categorizeActivity(a) {
+  const t = `${a.activity_type || a.type || a.category || ""} ${a.description || ""}`.toLowerCase();
+  if (t.includes("payment") || t.includes("link") || t.includes("sms") || t.includes("whatsapp") || t.includes("email")) return "payments";
+  if (t.includes("ptp") || t.includes("promise")) return "ptp";
+  if (t.includes("field") || t.includes("visit") || t.includes("assign")) return "field";
+  if (t.includes("status") || t.includes("closed") || t.includes("recover")) return "status";
+  return "default";
+}
+
+function commChannel(a) {
+  const t = `${a.activity_type || a.type || ""} ${a.description || ""}`.toLowerCase();
+  if (t.includes("whatsapp")) return "WhatsApp";
+  if (t.includes("sms")) return "SMS";
+  if (t.includes("email")) return "Email";
+  if (t.includes("call")) return "Phone Call";
+  if (t.includes("meeting") || t.includes("visit")) return "In Person";
+  return "CRM Note";
+}
+
+function fmtDateTime(v) {
+  if (!v) return "--";
+  const d = new Date(v);
+  if (isNaN(d.getTime())) return "--";
+  return `${ciDate(v)}, ${d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}`;
+}
+
+const TAG_TONES = ["bg-[#e8f5f0] text-[#1E7E5E]", "bg-[#eaf2fb] text-[#2563a8]", "bg-[#f3e8fd] text-[#6d28d9]"];
+
+/** Icon + colour per communication type, for the compact Communication card. */
+function commTypeMeta(a) {
+  const t = `${a.activity_type || a.type || ""} ${a.description || ""}`.toLowerCase();
+  if (t.includes("whatsapp")) return { label: "WhatsApp", icon: "whatsapp", color: "#1E7E5E" };
+  if (t.includes("call")) return { label: "Phone Call", icon: "phone", color: "#22a55e" };
+  if (t.includes("sms")) return { label: "SMS", icon: "mail", color: "#3b6ea5" };
+  if (t.includes("email") || t.includes("mail")) return { label: "Email", icon: "mail", color: "#3b6ea5" };
+  if (t.includes("meeting") || t.includes("visit")) return { label: "Meeting", icon: "users", color: "#7c3aed" };
+  return { label: a.activity_type || a.type || "Note", icon: "doc", color: "#e8a33d" };
+}
+
+function MenuItem({ icon, label, onClick, tone }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      disabled={disabled}
-      title={title}
-      className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full py-1.5 pl-1.5 pr-3.5 text-xs font-bold shadow-sm transition-transform hover:-translate-y-0.5 hover:scale-105 active:scale-95 disabled:pointer-events-none disabled:opacity-60 ${tones[tone]}`}
+      className={`flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[13px] font-medium transition hover:bg-surface ${
+        tone === "danger" ? "text-danger" : "text-gray-700"
+      }`}
     >
-      <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${icTones[tone]}`}>
-        <CiIcon name={icon} size={13} strokeWidth={2} />
-      </span>
-      {children}
+      {icon === "whatsapp" ? <WhatsAppIcon size={14} /> : <CiIcon name={icon} size={14} strokeWidth={2} className="text-gray-400" />}
+      {label}
     </button>
   );
 }
 
 /**
- * Customer One Pager — a real page (not a modal), so it renders inside the
- * normal AppShell: sidebar + header stay exactly where they always are.
- * Layout/tabs are modelled on a clean HR-profile design; colours use the
- * CRM's own teal/navy theme.
+ * Customer One Pager — dashboard-style summary (mirrors the classic
+ * CRM "customer 360" layout: identity + overview + rating up top, then
+ * contacts/deals/orders, timeline + notes, documents + additional info,
+ * and communication history along the bottom).
+ *
+ * This is a lending/collections CRM, not a sales CRM, so a few labels
+ * from that layout (Deals, Orders, Tags, Source) don't have a native
+ * backing field here. Where real data exists (loan, payments, documents,
+ * activity/PTP/disposition history) it's used as-is; where it doesn't,
+ * the section still renders with a clearly-marked placeholder so the
+ * page keeps the same shape without pretending fabricated data is real.
  *
  * Usage: /customer-one-pager?lead_id=…
- *   - From the leads table: Loan ID link points straight here.
- *   - From client-info: the "One Pager" chip links here too.
- *
- * ⚠️ CUSTOMER PHOTO: still a placeholder — swap the circle's contents for
- * a real <img> once the team confirms where the photo comes from.
  */
 export default function OnePagerView({ leadId }) {
-  const router = useRouter();
   const toast = useToast();
   const printRef = useRef(null);
-  const [tab, setTab] = useState("personal");
+  const commHistoryRef = useRef(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [loan, setLoan] = useState(null);
   const [addressData, setAddressData] = useState([]);
-  const [history, setHistory] = useState({ loading: false, loaded: false, error: false, rows: [] });
+  const [mobileData, setMobileData] = useState([]);
   const [roles, setRoles] = useState([]);
+  const [username, setUsername] = useState("");
+  const [pageSettings, setPageSettings] = useState(PAGE_SETTINGS_DEFAULTS);
+  const [payments, setPayments] = useState({ loading: true, rows: [] });
+  const [docs, setDocs] = useState({ loading: true, rows: [] });
+  const [feed, setFeed] = useState({ loading: true, timelineRaw: [], ptpRaw: [], dispRaw: [] });
+  const [showAllDocs, setShowAllDocs] = useState(false);
+  const [activityMenu, setActivityMenu] = useState(false);
+  const [moreMenu, setMoreMenu] = useState(false);
   const [payLinkOn, setPayLinkOn] = useState(false);
-  const [openModal, setOpenModal] = useState(null); // "blockPan" | "payLink" | "updatePayment" | "collectionLogs"
+  const [openModal, setOpenModal] = useState(null);
+  const [notes, setNotes] = useState([]); // session-local until a save API exists
+  const [assignmentInfo, setAssignmentInfo] = useState({ loading: true, found: false, assignedOn: null, assignedByAudit: null });
 
   useEffect(() => {
     try {
@@ -97,7 +150,6 @@ export default function OnePagerView({ leadId }) {
     } catch {}
   }
 
-  /* Reloan — verbatim: GET enable_reloan.php?pan=… */
   async function reloan() {
     const res = await clientFetch(`/api/reloan/enable?pan=${encodeURIComponent(ciSafe(loan?.pan))}`);
     if (res.status === 0) return toast.error("Network error.");
@@ -106,18 +158,24 @@ export default function OnePagerView({ leadId }) {
     else toast.error(d.message || "Done");
   }
 
+  /* Core record — loan details + address */
   useEffect(() => {
     if (!leadId) return;
     let cancelled = false;
     (async () => {
       setLoading(true);
       setError(null);
-      const [meRes, loanRes] = await Promise.all([
+      const [meRes, loanRes, psRes] = await Promise.all([
         clientFetch("/api/auth/me"),
         clientFetch(`/api/client/loan-details?lead_id=${encodeURIComponent(leadId)}`),
+        clientFetch("/api/config/page-settings"),
       ]);
       if (cancelled) return;
       setRoles(meRes.data?.user?.roles || []);
+      setUsername(meRes.data?.user?.username || "");
+      if (psRes.data?.success) {
+        setPageSettings({ ...PAGE_SETTINGS_DEFAULTS, ...(psRes.data.settings?.["customer-one-pager"] || {}) });
+      }
       const loanDetails = loanRes.data?.data ?? null;
       if (!loanDetails) {
         setError(`No details found for Lead ID: ${leadId}`);
@@ -126,8 +184,14 @@ export default function OnePagerView({ leadId }) {
       }
       setLoan(loanDetails);
       if (loanDetails.pan) {
-        const addrRes = await clientFetch(`/api/client/address?pan=${encodeURIComponent(loanDetails.pan)}`);
-        if (!cancelled) setAddressData(addrRes.data?.result || []);
+        const [addrRes, mobRes] = await Promise.all([
+          clientFetch(`/api/client/address?pan=${encodeURIComponent(loanDetails.pan)}`),
+          clientFetch(`/api/client/mobile?pan=${encodeURIComponent(loanDetails.pan)}`),
+        ]);
+        if (!cancelled) {
+          setAddressData(addrRes.data?.result || []);
+          setMobileData(mobRes.data?.result || []);
+        }
       }
       if (!cancelled) setLoading(false);
     })();
@@ -136,47 +200,171 @@ export default function OnePagerView({ leadId }) {
     };
   }, [leadId]);
 
-  /* Lazy-load repayment history only when that tab is opened */
+  /* Payments ("Orders"), documents, and the merged activity feed — all load
+     eagerly now that this is a single-page dashboard rather than tabs. */
   useEffect(() => {
-    if (tab !== "docs" || !leadId || history.loaded || history.loading) return;
+    if (!loan || !leadId) return;
     let cancelled = false;
+
     (async () => {
-      setHistory((h) => ({ ...h, loading: true }));
       const res = await clientFetch(`/api/payments/fetch?leadId=${encodeURIComponent(leadId)}`);
       if (cancelled) return;
-      if (res.status === 0 || (!res.ok && !res.data)) {
-        setHistory({ loading: false, loaded: true, error: true, rows: [] });
-      } else {
-        setHistory({ loading: false, loaded: true, error: false, rows: res.data?.data || [] });
-      }
+      setPayments({ loading: false, rows: res.status === 0 || (!res.ok && !res.data) ? [] : res.data?.data || [] });
     })();
+
+    (async () => {
+      const res = await clientFetch(`/api/docs/list?lead_id=${encodeURIComponent(leadId)}`);
+      if (cancelled) return;
+      setDocs({ loading: false, rows: res.status === 0 || !res.ok || !res.data?.success ? [] : res.data.documents || [] });
+    })();
+
+    (async () => {
+      const params = new URLSearchParams({ lead_id: leadId });
+      if (loan.loan_no) params.set("loan_no", loan.loan_no);
+      const res = await clientFetch(`/api/leads/assignment-info?${params.toString()}`);
+      if (cancelled) return;
+      const d = res.data || {};
+      setAssignmentInfo({
+        loading: false,
+        found: Boolean(d.success && d.found),
+        assignedOn: d.assignedOn ?? null,
+        assignedByAudit: d.assignedByAudit ?? null,
+      });
+    })();
+
+    (async () => {
+      const loanNo = loan.loan_no || "";
+      const [tlRes, ptpRes, dispRes] = await Promise.all([
+        clientFetch(`/api/leads/activity-timeline?lead_id=${encodeURIComponent(leadId)}`),
+        clientFetch(`/api/ptp/list?leadId=${encodeURIComponent(leadId)}`),
+        loanNo
+          ? clientFetch(`/api/disposition/history?search=${encodeURIComponent(loanNo)}&limit=50`)
+          : Promise.resolve({ ok: true, data: { rows: [] } }),
+      ]);
+      if (cancelled) return;
+      setFeed({
+        loading: false,
+        timelineRaw: tlRes.data?.data || tlRes.data?.activities || tlRes.data?.result || [],
+        ptpRaw: ptpRes.data?.data || [],
+        dispRaw: dispRes.ok ? dispRes.data?.rows || [] : [],
+      });
+    })();
+
     return () => {
       cancelled = true;
     };
-  }, [tab, leadId, history.loaded, history.loading]);
+  }, [loan, leadId]);
+
+  const timelineEntries = useMemo(() => {
+    if (!loan) return [];
+    const loanNo = loan.loan_no || "";
+    const entries = [];
+
+    for (const a of feed.timelineRaw) {
+      const date = a.created_at || a.activity_date || a.timestamp;
+      if (!date) continue;
+      entries.push({ date, title: a.activity_type || a.type || "Activity", subtitle: a.description || null, category: categorizeActivity(a) });
+    }
+    for (const p of feed.ptpRaw) {
+      const date = p.created_at || p.ptp_date;
+      if (!date) continue;
+      const due = p.ptp_date ? ` by ${ciDate(p.ptp_date)}` : "";
+      entries.push({
+        date,
+        title: `Promise to Pay${p.ptp_amount ? ` — ${ciInr(p.ptp_amount)}` : ""}${due}`,
+        subtitle: p.action_taken || p.remarks || null,
+        category: "ptp",
+      });
+    }
+    for (const pmt of payments.rows) {
+      const date = pmt.date;
+      if (!date) continue;
+      entries.push({ date, title: `Payment received — ${ciInr(pmt.amount ?? 0)}`, subtitle: pmt.mode || null, category: "payments" });
+    }
+    for (const d of feed.dispRaw) {
+      const rLead = String(d.lead_id ?? d.leadId ?? "");
+      const rLoan = String(d.loan_no ?? d.loanNo ?? d.loan_id ?? "");
+      if (!((leadId && rLead === String(leadId)) || (loanNo && rLoan === String(loanNo)))) continue;
+      const date = d.created_at || d.createdAt || d.created_on;
+      if (!date) continue;
+      entries.push({
+        date,
+        title: d.disposition_label || d.dispositionLabel || d.disposition_code || d.dispositionCode || "Disposition logged",
+        subtitle: d.remarks || d.remark || d.comment || null,
+        category: "disposition",
+      });
+    }
+    entries.sort((a, b) => new Date(b.date) - new Date(a.date));
+    return entries;
+  }, [feed, payments.rows, loan, leadId]);
+
+  const commRows = useMemo(
+    () => feed.timelineRaw.filter((a) => /call|sms|whatsapp|email|meeting|visit/i.test(`${a.activity_type || a.type || ""}`)).slice(0, 10),
+    [feed.timelineRaw]
+  );
 
   if (!leadId) return <ErrorState message="Invalid Lead ID." />;
   if (loading) return <PageLoader label="Loading customer summary…" />;
   if (error || !loan) return <ErrorState message={error || "Something went wrong."} />;
 
   const statusMeta = getStatusMeta(loan.loan_status);
+  const priority = getPriority(parseInt(loan.overdue_days) || 0);
   const { isAdmin, isHead, isExec, isAcm } = getRoleFlags(roles);
   const isClosed = String(loan.loan_status || "").trim().toLowerCase() === "closed";
+  const feedLoading = feed.loading;
+  const maskOn = pageSettings.maskSensitiveData;
+  const masked = (v) => (maskOn ? maskValue(v) : v);
 
   const references = [1, 2]
-    .map((n) => ({
-      name: loan[`reference_name_${n}`],
-      relation: loan[`ref_relation_${n}`],
-      contact: loan[`mobile_number_${n}`],
-    }))
+    .map((n) => ({ name: loan[`reference_name_${n}`], relation: loan[`ref_relation_${n}`], contact: loan[`mobile_number_${n}`] }))
     .filter((r) => r.name || r.contact);
 
   const agentName = loan.collection_assigned_to_agent_name ?? loan.agent_name ?? loan.emp_name ?? null;
+  const allocBy = loan.collection_assigned_by_agent_name ?? loan.allocated_by ?? loan.assigned_by ?? null;
+
+  const callLead = {
+    leadId: leadId,
+    name: loan.full_name ?? "",
+    loanId: loan.loan_no ?? "",
+    mobile: loan.mobile ?? "",
+    altMobile: loan.alternate_mobile ?? "",
+    status: loan.loan_status ?? "",
+    claimAmt: parseFloat(loan.penalty_amount) || 0,
+    principal: parseFloat(loan.principal_outstanding) || 0,
+    dpd: parseInt(loan.overdue_days) || 0,
+    loanAmt: parseFloat(loan.loan_amount) || 0,
+  };
+
+
+  const sinceYears = (() => {
+    if (!loan.sanction_date) return null;
+    const d = new Date(loan.sanction_date);
+    if (isNaN(d.getTime())) return null;
+    const years = (Date.now() - d.getTime()) / (365.25 * 24 * 3600 * 1000);
+    return years >= 0 ? years.toFixed(1) : null;
+  })();
+
+  const daysSinceAssigned = (() => {
+    if (!assignmentInfo.found || !assignmentInfo.assignedOn) return null;
+    const d = new Date(assignmentInfo.assignedOn);
+    if (isNaN(d.getTime())) return null;
+    return Math.max(0, Math.floor((Date.now() - d.getTime()) / 86400000));
+  })();
+
+  const tags = [loan.loan_type, loan.product_type, isClosed ? "Closed" : `${priority.label} Priority`].filter(Boolean).slice(0, 3);
+  const showPhoto = Boolean(leadId);
 
   const infoCell = (label, value) => (
     <div>
-      <div className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">{label}</div>
+      <div className="text-[10.5px] font-semibold uppercase tracking-wide text-gray-400">{label}</div>
       <div className="mt-0.5 text-sm font-semibold text-gray-800">{value ?? "--"}</div>
+    </div>
+  );
+
+  const statBox = (label, value, tone) => (
+    <div className="rounded-xl border border-line p-3 text-center">
+      <div className="text-[11px] text-gray-500">{label}</div>
+      <div className={`mt-1 text-base font-bold ${tone === "danger" ? "text-danger" : "text-gray-800"}`}>{value}</div>
     </div>
   );
 
@@ -187,366 +375,548 @@ export default function OnePagerView({ leadId }) {
     </div>
   );
 
-  const card = (title, children, extraClass = "") => (
-    <div className={`card p-4 ${extraClass}`}>
-      <h4 className="mb-3 text-[13px] font-bold text-gray-800">{title}</h4>
-      {children}
-    </div>
-  );
-
   const docLink = "inline-block rounded bg-accent-light px-2.5 py-1 text-xs font-bold text-accent-dark no-underline hover:bg-accent hover:text-white";
+  const docTypeLabel = (type) =>
+    String(type ?? "Document")
+      .replace(/_/g, " ")
+      .toLowerCase()
+      .replace(/\b\w/g, (c) => c.toUpperCase());
 
   return (
     <div>
-      {/* Page header — breadcrumb + actions (this whole block is hidden on print) */}
+      {isClosed && <ClosedCelebration collectionAmount={loan.collection_amount} />}
+
+      {/* Top bar */}
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3 print:hidden">
-        <div>
-          <button type="button" onClick={() => router.back()} className="mb-1 text-xs font-semibold text-accent-dark hover:underline">
-            ← Back
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => window.history.back()}
+            className="flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-white text-gray-600 transition hover:bg-gray-50"
+            aria-label="Back"
+          >
+            <CiIcon name="back" size={16} strokeWidth={2} />
           </button>
-          <h1 className="font-display text-xl font-bold text-gray-800">Customer One Pager</h1>
-          <p className="text-xs text-gray-400">
-            <Link href="/leads" className="text-accent-dark no-underline hover:underline">
-              Leads
-            </Link>{" "}
-            / {ciSafe(loan.full_name)}
-          </p>
+          <h1 className="font-display text-xl font-bold text-gray-800">Customer Details</h1>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {(isAdmin || isHead || isExec || isAcm) && (
-            <OpChip tone="teal" icon="doc" onClick={() => setOpenModal("collectionLogs")}>
-              Collection Logs
-            </OpChip>
-          )}
-          {(isAdmin || isHead || isAcm) && (
-            <OpChip tone="green" icon="rupee" onClick={() => setOpenModal("updatePayment")}>
-              Update Payment
-            </OpChip>
-          )}
-          {(isAdmin || isAcm) && (
-            <OpChip tone="amber" icon="lock" onClick={reloan}>
-              Reloan
-            </OpChip>
-          )}
-          {(isAdmin || isHead || isExec || isAcm) && (
-            <OpChip tone="red" icon="block" onClick={() => setOpenModal("blockPan")}>
-              Block PAN
-            </OpChip>
-          )}
-          {!isClosed && (
-            <div
-              className={`inline-flex items-center gap-1.5 rounded-full border-[1.5px] py-1.5 pl-1.5 pr-2.5 text-xs font-bold transition-colors ${
-                payLinkOn ? "border-[#1E7E5E] bg-[#f0faf4] text-[#1E7E5E]" : "border-line bg-panel text-[#1d4468]"
-              }`}
-            >
-              <label className="m-0 flex cursor-pointer select-none items-center gap-1.5">
-                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-info text-white">
-                  <CiIcon name="link" size={13} strokeWidth={2} />
-                </span>
-                <span className="whitespace-nowrap">Pay Link</span>
-                <span className="relative ml-0.5 inline-block h-[17px] w-[30px] shrink-0">
-                  <input
-                    type="checkbox"
-                    checked={payLinkOn}
-                    onChange={(e) => togglePayLink(e.target.checked)}
-                    className="absolute h-0 w-0 opacity-0"
+
+        <div className="flex items-center gap-2" onMouseLeave={() => { setActivityMenu(false); setMoreMenu(false); }}>
+          <button type="button" className="btn-secondary" onClick={() => setOpenModal("updatePayment")}>
+            Edit
+          </button>
+
+          <div className="relative">
+            <button type="button" className="btn-secondary" onClick={() => { setActivityMenu((v) => !v); setMoreMenu(false); }}>
+              Add Activity
+            </button>
+            {activityMenu && (
+              <div className="absolute right-0 z-20 mt-1.5 w-48 overflow-hidden rounded-xl border border-line bg-white shadow-pop">
+                <MenuItem icon="phone" label="Log a Call" onClick={() => { setOpenModal("call"); setActivityMenu(false); }} />
+                <MenuItem icon="whatsapp" label="Send WhatsApp" onClick={() => { setOpenModal("whatsapp"); setActivityMenu(false); }} />
+              </div>
+            )}
+          </div>
+
+          <div className="relative">
+            <button type="button" className="btn-primary" onClick={() => { setMoreMenu((v) => !v); setActivityMenu(false); }}>
+              More
+            </button>
+            {moreMenu && (
+              <div className="absolute right-0 z-20 mt-1.5 w-56 overflow-hidden rounded-xl border border-line bg-white shadow-pop">
+                {(isAdmin || isHead || isExec || isAcm) && (
+                  <MenuItem icon="doc" label="Collection Logs" onClick={() => { setOpenModal("collectionLogs"); setMoreMenu(false); }} />
+                )}
+                {(isAdmin || isHead || isAcm) && (
+                  <MenuItem icon="rupee" label="Update Payment" onClick={() => { setOpenModal("updatePayment"); setMoreMenu(false); }} />
+                )}
+                {(isAdmin || isAcm) && <MenuItem icon="lock" label="Reloan" onClick={() => { reloan(); setMoreMenu(false); }} />}
+                {(isAdmin || isHead || isExec || isAcm) && (
+                  <MenuItem icon="block" label="Block PAN" tone="danger" onClick={() => { setOpenModal("blockPan"); setMoreMenu(false); }} />
+                )}
+                {pageSettings.showUpiReference && (
+                  <MenuItem icon="card" label="UPI References" onClick={() => { setOpenModal("upi"); setMoreMenu(false); }} />
+                )}
+                {!isClosed && (
+                  <MenuItem
+                    icon="link"
+                    label={payLinkOn ? "Disable Pay Link" : "Enable Pay Link"}
+                    onClick={() => { togglePayLink(!payLinkOn); setMoreMenu(false); }}
                   />
-                  <span className={`absolute inset-0 cursor-pointer rounded-full transition-colors ${payLinkOn ? "bg-[#1E7E5E]" : "bg-line"}`}>
-                    <span
-                      className="absolute bottom-[2px] left-[2px] h-3 w-3 rounded-full bg-white shadow transition-transform"
-                      style={{ transform: payLinkOn ? "translateX(16px)" : "translateX(0)" }}
-                    />
+                )}
+                {payLinkOn && !isClosed && (
+                  <MenuItem icon="rupee" label="Generate Pay Link" onClick={() => { setOpenModal("payLink"); setMoreMenu(false); }} />
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div id="one-pager-print" ref={printRef}>
+        {/* Row 1 — Identity · Overview · Rating & Tags */}
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+          <div className="card p-4">
+            <div className="flex items-center gap-3">
+              <div className="relative flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-accent to-accent-dark font-display text-lg font-bold text-white ring-2 ring-accent-light">
+                {showPhoto ? (
+                  <img
+                    src={`/api/docs/aadhar?lead_id=${encodeURIComponent(leadId)}`}
+                    alt=""
+                    className="absolute inset-0 h-full w-full object-cover object-top"
+                    onError={(e) => {
+                      e.currentTarget.style.display = "none";
+                    }}
+                  />
+                ) : null}
+                <span className={showPhoto ? "pointer-events-none" : ""}>{ciInitials(loan.full_name ?? "")}</span>
+              </div>
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="truncate font-display text-base font-bold text-gray-800">{ciSafe(loan.full_name)}</span>
+                  <span
+                    className="badge border"
+                    style={{ color: statusMeta.color, background: statusMeta.bg, borderColor: "currentColor" }}
+                  >
+                    {statusMeta.label}
                   </span>
+                </div>
+                <div className="mt-0.5 text-[11px] text-gray-400">CUS-{ciSafe(leadId)}</div>
+              </div>
+            </div>
+
+            <div className="mt-3 space-y-1 text-[12px] text-gray-500">
+              <div>
+                Customer Since {ciDate(loan.sanction_date)}
+                {sinceYears ? ` (${sinceYears} Yr)` : ""}
+              </div>
+              <div>Customer Type: Individual</div>
+            </div>
+
+            <div className="mt-3 space-y-1.5 border-t border-gray-100 pt-3 text-[12.5px] text-gray-600">
+              {loan.personal_email && (
+                <div className="flex items-center gap-2">
+                  <CiIcon name="mail" size={14} className="shrink-0 text-gray-400" />
+                  <span className="truncate">{ciSafe(masked(loan.personal_email))}</span>{" "}
+                  <span className="shrink-0 text-[10px] text-gray-400">(Personal)</span>
+                </div>
+              )}
+              {loan.office_email && (
+                <div className="flex items-center gap-2">
+                  <CiIcon name="mail" size={14} className="shrink-0 text-gray-400" />
+                  <span className="truncate">{ciSafe(masked(loan.office_email))}</span>{" "}
+                  <span className="shrink-0 text-[10px] text-gray-400">(Official)</span>
+                </div>
+              )}
+              {!loan.personal_email && !loan.office_email && (
+                <div className="flex items-center gap-2">
+                  <CiIcon name="mail" size={14} className="shrink-0 text-gray-400" />
+                  <span className="truncate">{ciSafe(null)}</span>
+                </div>
+              )}
+              <div className="flex items-center gap-2">
+                <CiIcon name="phone" size={14} className="shrink-0 text-gray-400" />
+                {ciSafe(masked(loan.mobile))} <span className="text-[10px] text-gray-400">(Personal)</span>
+              </div>
+              {loan.alternate_mobile && (
+                <div className="flex items-center gap-2">
+                  <CiIcon name="phone" size={14} className="shrink-0 text-gray-400" />
+                  {ciSafe(masked(loan.alternate_mobile))} <span className="text-[10px] text-gray-400">(Work)</span>
+                </div>
+              )}
+              <div className="flex items-start gap-2">
+                <CiIcon name="pin" size={14} className="mt-0.5 shrink-0 text-gray-400" />
+                <span>
+                  {addressData.length > 0
+                    ? ciSafe([addressData[0].address, addressData[0].city, addressData[0].state, addressData[0].pincode].filter(Boolean).join(", "))
+                    : "No address on record."}
                 </span>
-              </label>
-              {payLinkOn && (
-                <button
-                  onClick={() => setOpenModal("payLink")}
-                  className="ml-2 rounded-full bg-info px-2.5 py-[3px] text-[11px] font-bold text-white"
-                >
-                  Generate
+              </div>
+            </div>
+          </div>
+
+          <div className="card p-4">
+            <h4 className="mb-3 text-[13px] font-bold text-gray-800">Summary</h4>
+            <div className="grid grid-cols-3 gap-2.5">
+              {statBox("Loan Amount", ciInr(loan.loan_amount ?? 0))}
+              {statBox("Loan Tenure", `${ciSafe(loan.tenure)} Days`)}
+              {statBox("Sanction Date", ciDate(loan.sanction_date))}
+              {statBox("Repayment Amount", ciInr(loan.repayment_amount ?? 0))}
+              {statBox("Repayment Date", ciDate(loan.repayment_date))}
+              {statBox("Collected Amount", ciInr(loan.collection_amount ?? 0))}
+              {statBox("Collection Date", ciDate(loan.collection_date))}
+              {statBox("Payment Today", ciInr(loan.ontime_repayment_amount ?? 0))}
+              <div className="rounded-xl border border-[#ddd0f7] bg-[#f6f1fd] p-3 text-center shadow-sm">
+                <div className="text-[11px] font-semibold text-[#7c3aed]">Salary Date</div>
+                <div className="mt-1 text-base font-bold text-[#6d28d9]">{ciDate(loan.fixed_salary_date)}</div>
+              </div>
+            </div>
+            <div className="mt-3 border-t border-gray-100 pt-3">
+              <div className="mb-1.5 text-[11px] font-semibold text-gray-500">Tags</div>
+              <div className="flex flex-wrap gap-1.5">
+                {tags.map((t, i) => (
+                  <span key={i} className={`badge ${TAG_TONES[i % TAG_TONES.length]}`}>
+                    {t}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="card p-4">
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <h4 className="text-[13px] font-bold text-gray-800">Communication</h4>
+              <button
+                type="button"
+                onClick={() => commHistoryRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
+                className="text-[12px] font-semibold text-accent-dark hover:underline"
+              >
+                View All
+              </button>
+            </div>
+            {feedLoading ? (
+              <p className="text-[12.5px] text-gray-400">Loading…</p>
+            ) : commRows.length === 0 ? (
+              <p className="text-[12.5px] text-gray-400">No communication logs recorded yet.</p>
+            ) : (
+              <div className="relative pl-1">
+                <div className="absolute bottom-3 left-[15px] top-3 w-px bg-line" />
+                <div className="space-y-4">
+                  {commRows.slice(0, 4).map((a, i) => {
+                    const meta = commTypeMeta(a);
+                    return (
+                      <div key={i} className="relative flex gap-3">
+                        <span
+                          className="relative z-[1] flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-white"
+                          style={{ background: meta.color }}
+                        >
+                          {meta.icon === "whatsapp" ? <WhatsAppIcon size={14} /> : <CiIcon name={meta.icon} size={14} strokeWidth={2} />}
+                        </span>
+                        <div className="min-w-0 flex-1 pt-0.5">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <div className="text-[12.5px] font-bold text-gray-800">{meta.label}</div>
+                              <div className="mt-0.5 truncate text-[11.5px] text-gray-500">{ciSafe(a.description, "--")}</div>
+                            </div>
+                            <div className="shrink-0 text-right">
+                              <div className="text-[11px] font-semibold text-gray-700">{ciSafe(agentName, "--")}</div>
+                              <div className="text-[10.5px] text-gray-400">{fmtDateTime(a.created_at || a.activity_date || a.timestamp)}</div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Row 1.5 — Case Assignment */}
+        <div className="mt-4">
+          <div className="card p-4">
+            <div className="mb-3 flex items-center gap-2">
+              <CiIcon name="users" size={15} strokeWidth={2} className="text-accent-dark" />
+              <h4 className="text-[13px] font-bold text-gray-800">Case Assignment</h4>
+            </div>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {infoCell("Assigned To", ciSafe(agentName))}
+              {infoCell("Assigned By", ciSafe(allocBy || assignmentInfo.assignedByAudit))}
+              {infoCell(
+                "Assigned On",
+                assignmentInfo.loading ? "Loading…" : assignmentInfo.found ? fmtDateTime(assignmentInfo.assignedOn) : "Not available"
+              )}
+              {infoCell(
+                "Days Since Assigned",
+                assignmentInfo.loading
+                  ? "…"
+                  : assignmentInfo.found
+                    ? `${daysSinceAssigned} day${daysSinceAssigned === 1 ? "" : "s"}`
+                    : "—"
+              )}
+            </div>
+            {!assignmentInfo.loading && !assignmentInfo.found && (
+              <p className="mt-2.5 text-[10.5px] text-gray-400">
+                No assignment timestamp found in the audit trail for this case — this only tracks single manual
+                assignments today, not bulk or round-robin assignment.
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* Row 2 — Related Contacts · Deals · Orders */}
+        <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
+          <div className="card p-4">
+            <h4 className="mb-3 text-[13px] font-bold text-gray-800">Related Contacts</h4>
+            {references.length > 0 ? (
+              <div className="space-y-3">
+                {references.map((r, i) => (
+                  <div key={i} className={i > 0 ? "border-t border-gray-100 pt-3" : ""}>
+                    <div className="text-[12.5px] font-semibold text-gray-800">
+                      {ciSafe(r.name)} <span className="font-normal text-gray-400">({ciSafe(r.relation)})</span>
+                    </div>
+                    <div className="mt-1 flex items-center gap-1.5 text-[12px] text-gray-500">
+                      <CiIcon name="phone" size={12} />
+                      {ciSafe(masked(r.contact))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-[12.5px] text-gray-400">No related contacts on record.</p>
+            )}
+            <button
+              type="button"
+              onClick={() => toast.error("Adding contacts isn't available yet.")}
+              className="mt-3 text-[12px] font-semibold text-accent-dark hover:underline"
+            >
+              + Add Contact
+            </button>
+          </div>
+
+          <div className="card p-4">
+            <h4 className="mb-3 text-[13px] font-bold text-gray-800">Running Loan</h4>
+            <div className="rounded-lg border border-gray-100 p-3">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[12.5px] font-semibold text-gray-800">
+                  {ciSafe(loan.loan_type, "Personal")} Loan — {ciSafe(loan.loan_no)}
+                </span>
+                <span className="badge border" style={{ color: statusMeta.color, background: statusMeta.bg, borderColor: "currentColor" }}>
+                  {statusMeta.label}
+                </span>
+              </div>
+              <div className="mt-1.5 text-[13px] font-bold text-accent-dark">{ciInr(loan.loan_amount ?? 0)}</div>
+            </div>
+            <p className="mt-2 text-[10.5px] text-gray-400">This CRM tracks one loan per customer, shown here as a single deal.</p>
+          </div>
+
+          <div className="card p-4">
+            <h4 className="mb-3 text-[13px] font-bold text-gray-800">Repayment History({payments.loading ? "…" : payments.rows.length})</h4>
+            {payments.loading ? (
+              <p className="text-[12.5px] text-gray-400">Loading…</p>
+            ) : payments.rows.length === 0 ? (
+              <p className="text-[12.5px] text-gray-400">No orders recorded yet.</p>
+            ) : (
+              <div className="max-h-[190px] space-y-2 overflow-y-auto pr-1">
+                {payments.rows.map((p, i) => {
+                  const sameLead = p.is_same_lead === true || p.is_same_lead === "true";
+                  return (
+                    <div key={i} className="flex items-center justify-between border-b border-gray-100 pb-2 text-[12.5px] last:border-0 last:pb-0">
+                      <div>
+                        <div className="font-semibold text-gray-800">{ciSafe(p.loan_no)}</div>
+                        <div className="text-[11px] text-gray-400">{ciDate(p.date)}</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-bold text-[#1E7E5E]">{ciInr(p.amount ?? 0)}</div>
+                        <div className="text-[11px] text-gray-400">{sameLead ? "Completed" : ciSafe(p.mode)}</div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Row 3 — Timeline/Activities · Notes */}
+        <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
+          <div className="card p-4 lg:col-span-2">
+            <h4 className="mb-3 text-[13px] font-bold text-gray-800">Timeline / Activities</h4>
+            {feedLoading ? (
+              <p className="text-[12.5px] text-gray-400">Loading activity…</p>
+            ) : timelineEntries.length === 0 ? (
+              <p className="text-[12.5px] text-gray-400">No recorded activity yet for this customer.</p>
+            ) : (
+              <div className="relative max-h-[380px] overflow-y-auto pl-2 pr-1">
+                <div className="absolute bottom-2 left-[13px] top-2 w-px bg-line" />
+                <div className="space-y-4">
+                  {timelineEntries.slice(0, 20).map((e, i) => {
+                    const meta = CATEGORY_META[e.category] || CATEGORY_META.default;
+                    return (
+                      <div key={i} className="relative flex gap-3">
+                        <span
+                          className="relative z-[1] flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2"
+                          style={{ borderColor: meta.color, background: meta.color + "1a", color: meta.color }}
+                        >
+                          <CiIcon name={meta.icon} size={12} />
+                        </span>
+                        <div className="min-w-0 flex-1 pt-0.5">
+                          <div className="text-[12.5px] font-semibold text-gray-800">{e.title}</div>
+                          {e.subtitle && <div className="mt-0.5 text-[11.5px] text-gray-500">{e.subtitle}</div>}
+                          <div className="mt-0.5 text-[10.5px] text-gray-400">{fmtDateTime(e.date)}</div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="card p-4">
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <h4 className="text-[13px] font-bold text-gray-800">Notes</h4>
+              <button
+                type="button"
+                onClick={() => setOpenModal("notes")}
+                className="text-[12px] font-semibold text-accent-dark hover:underline"
+              >
+                + Add Note
+              </button>
+            </div>
+            {notes.length === 0 ? (
+              <p className="text-[12.5px] text-gray-400">No notes yet — click + Add Note after a call or interaction.</p>
+            ) : (
+              <div className="max-h-[220px] space-y-2 overflow-y-auto pr-1">
+                {notes.map((n, i) => (
+                  <div key={i} className="rounded-lg border border-[#f0d9a8] bg-[#fdf6e9] p-3">
+                    <p className="whitespace-pre-wrap text-[12.5px] text-gray-700">{n.text}</p>
+                    <div className="mt-2 flex items-center justify-between text-[11px] text-gray-500">
+                      <span>{ciSafe(n.author || agentName, "Collection Team")}</span>
+                      <span>{fmtDateTime(n.at)}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            <p className="mt-2 text-[10.5px] text-gray-400">
+              Notes are kept for this session only — saving to the database is coming soon.
+            </p>
+          </div>
+        </div>
+
+        {/* Row 4 — Documents · Additional Information */}
+        <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <div className="card p-4">
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <h4 className="text-[13px] font-bold text-gray-800">Documents</h4>
+              {docs.rows.length > 4 && (
+                <button type="button" onClick={() => setShowAllDocs((v) => !v)} className="text-[12px] font-semibold text-accent-dark hover:underline">
+                  {showAllDocs ? "Show Less" : "View All Documents"}
                 </button>
               )}
             </div>
-          )}
-        </div>
-      </div>
-
-      {/* Tabs */}
-      <div className="mb-5 flex gap-1 border-b border-line print:hidden">
-        {TABS.map((t) => (
-          <button
-            key={t.key}
-            type="button"
-            onClick={() => setTab(t.key)}
-            className={`border-b-2 px-4 py-2.5 text-sm font-semibold transition ${
-              tab === t.key ? "border-accent text-accent-dark" : "border-transparent text-gray-500 hover:text-gray-700"
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
-
-      {/* ── PRINTABLE CONTENT ── */}
-      <div id="one-pager-print" ref={printRef}>
-        {/* Identity strip — shown on every tab */}
-        <div className="card mb-4 flex items-center gap-4 p-4">
-          {/* ⚠️ PLACEHOLDER — swap for <img src={...} className="h-16 w-16 rounded-full object-cover" /> once the photo source is confirmed */}
-          <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full border-2 border-dashed border-gray-300 bg-surface text-xl">
-            🖼️
-          </div>
-          <div className="min-w-0">
-            <div className="text-lg font-bold text-gray-800">{ciSafe(loan.full_name)}</div>
-            <div className="text-xs font-semibold text-gray-600">
-              {ciSafe(loan.loan_no)} · Lead {ciSafe(leadId)} ·{" "}
-              <span style={{ color: statusMeta.color }}>{statusMeta.label}</span>
-            </div>
-          </div>
-        </div>
-
-        <h2 className="mb-3 text-base font-bold text-gray-800 print:hidden">{TABS.find((t) => t.key === tab)?.label}</h2>
-
-        {/* ── TAB: Personal Info ── */}
-        {tab === "personal" && (
-          <>
-            {card(
-              "Basic information",
-              <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
-                <div className="sm:col-span-1">
-                  <div className="space-y-1.5 text-[12.5px] text-gray-600">
-                    <div className="flex items-center gap-1.5">
-                      <span>⚥</span> {ciSafe(loan.gender)}
+            {docs.loading ? (
+              <p className="text-[12.5px] text-gray-400">Loading documents…</p>
+            ) : docs.rows.length === 0 ? (
+              <p className="text-[12.5px] text-gray-400">No documents found for this lead.</p>
+            ) : (
+              <div className="space-y-2">
+                {(showAllDocs ? docs.rows : docs.rows.slice(0, 4)).map((d, i) => (
+                  <div key={i} className="flex items-center justify-between gap-2 border-b border-gray-100 pb-2 text-[12.5px] last:border-0 last:pb-0">
+                    <div className="flex items-center gap-2 text-gray-700">
+                      <CiIcon name="doc" size={14} className="text-accent" />
+                      {docTypeLabel(d.type)}
                     </div>
-                    <div className="flex items-center gap-1.5">
-                      <span>✉</span> {ciSafe(loan.personal_email ?? loan.office_email)}
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <span>☎</span> {ciSafe(loan.mobile)}
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] text-gray-400">{ciDate(d.createdAt)}</span>
+                      {d.url ? (
+                        <a className={docLink} href={d.url} target="_blank" rel="noreferrer">
+                          View
+                        </a>
+                      ) : (
+                        <span className="text-[11px] text-gray-400">N/A</span>
+                      )}
                     </div>
                   </div>
-                </div>
-                <div className="grid grid-cols-2 gap-y-3 sm:col-span-1 sm:grid-cols-1">
-                  {infoCell("Date of Birth", ciDate(loan.dob))}
-                  {infoCell("Occupation", ciSafe(loan.occupation))}
-                </div>
-                <div className="grid grid-cols-2 gap-y-3 sm:col-span-1 sm:grid-cols-1">
-                  {infoCell("PAN Number", ciSafe(loan.pan))}
-                  {infoCell("Aadhaar Number", ciSafe(loan.aadhaar))}
-                </div>
-              </div>,
-              "mb-4"
-            )}
-
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              {card(
-                "Address",
-                addressData.length > 0 ? (
-                  <div className="max-h-[190px] space-y-2 overflow-y-auto pr-1">
-                    {addressData.map((a, i) => (
-                      <div key={i} className="border-b border-gray-100 pb-2 text-[12.5px] text-gray-700 last:border-0 last:pb-0">
-                        {ciSafe([a.address, a.city, a.state, a.pincode].filter(Boolean).join(", "), "--")}
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-[12.5px] text-gray-400">No address on record.</p>
-                )
-              )}
-
-              {card(
-                "Emergency contact",
-                references.length > 0 ? (
-                  <div className="space-y-4">
-                    {references.map((r, i) => (
-                      <div key={i} className={i > 0 ? "border-t border-gray-100 pt-3" : ""}>
-                        <div className="mb-1.5 inline-block rounded-full bg-accent-light px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-accent-dark">
-                          Reference {i + 1}
-                        </div>
-                        {kvRow("Name", ciSafe(r.name))}
-                        {kvRow("Relationship", ciSafe(r.relation))}
-                        {kvRow("Phone number", ciSafe(r.contact))}
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-[12.5px] text-gray-400">No reference on record.</p>
-                )
-              )}
-            </div>
-          </>
-        )}
-
-        {/* ── TAB: Loan & Repayment ── */}
-        {tab === "loan" && (
-          <div className="space-y-5">
-            {[
-              {
-                label: "Loan Overview",
-                fields: [
-                  ["hash", "Loan No", ciSafe(loan.loan_no)],
-                  ["user", "Applicant Name", ciSafe(loan.full_name)],
-                  ["phone", "Mobile Number", ciSafe(loan.mobile)],
-                  ["phone", "Alternate Mobile", ciSafe(loan.alternate_mobile)],
-                ],
-              },
-              {
-                label: "Loan Terms",
-                fields: [
-                  ["rupee", "Loan Amount", ciInr(loan.loan_amount ?? 0)],
-                  ["clock", "Loan Tenure", `${ciSafe(loan.tenure)} Days`],
-                  ["rupee", "ROI", `${ciSafe(loan.roi)}%`],
-                  ["cal", "Sanction Date", ciDate(loan.sanction_date)],
-                  ["hash", "Loan Type", ciSafe(loan.loan_type)],
-                  ["hash", "Product Type", loan.product_type ?? "Blinkr Loan"],
-                ],
-              },
-              {
-                label: "Repayment Schedule",
-                fields: [
-                  ["cash", "Repayment Amount", ciInr(loan.repayment_amount ?? 0)],
-                  ["calcheck", "Repayment Date", ciDate(loan.repayment_date), "blue"],
-                  ["salary", "Salary Date", ciDate(loan.fixed_salary_date), "purple"],
-                  ["today", "Payment Today", ciInr(loan.ontime_repayment_amount ?? 0), "rose"],
-                ],
-              },
-              {
-                label: "Collection & Recovery",
-                fields: [
-                  ["collected", "Collected Amt", ciInr(loan.collection_amount ?? 0)],
-                  ["calcheck", "Collection Date", ciDate(loan.collection_date)],
-                  ["hourglass", "Overdue Days", ciSafe(loan.overdue_days)],
-                  ["warn", "Overdue Amount", ciInr(loan.penalty_amount ?? 0)],
-                  ["waiver", "Waiver Amount", ciInr(loan.waiver_amount ?? 0)],
-                  ["users", "Assigned Agent", ciSafe(agentName)],
-                ],
-              },
-              {
-                label: "Bank & Fees",
-                fields: [
-                  ["hash", "Bank Acc No", ciSafe(loan.bank_acc_no)],
-                  ["hash", "IFSC Code", ciSafe(loan.ifsc_code)],
-                  ["cash", "Admin Fee", ciInr(loan.admin_fee ?? 0)],
-                  ["rupee", "Net Disbursal", ciInr(loan.net_disbursal ?? 0)],
-                ],
-              },
-            ].map((g) => (
-              <div key={g.label}>
-                <div className="mb-2.5 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-accent-dark">
-                  <span className="inline-block h-[13px] w-1 rounded bg-accent" />
-                  {g.label}
-                </div>
-                <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 xl:grid-cols-3">
-                  {g.fields.map(([icon, label, value, tone]) => (
-                    <InfoField key={label} icon={icon} label={label} value={value} tone={tone} />
-                  ))}
-                </div>
+                ))}
               </div>
-            ))}
+            )}
           </div>
-        )}
 
-        {/* ── TAB: PTP History ── */}
-        {tab === "ptp" && <PtpSection leadId={leadId} />}
+          <div className="card p-4">
+            <h4 className="mb-3 text-[13px] font-bold text-gray-800">Additional Information</h4>
+            <div className="grid grid-cols-2 gap-3">
+              {infoCell("Date of Birth", ciDate(loan.dob))}
+              {infoCell("Occupation", ciSafe(loan.occupation))}
+              {infoCell("PAN Number", ciSafe(masked(loan.pan)))}
+              {infoCell("Aadhaar Number", ciSafe(masked(loan.aadhaar)))}
+              {infoCell("Bank Account", ciSafe(masked(loan.bank_acc_no)))}
+              {infoCell("IFSC Code", ciSafe(masked(loan.ifsc_code)))}
+            </div>
+          </div>
+        </div>
 
-        {/* ── TAB: Insight ── */}
-        {tab === "insight" && <InsightTab leadId={leadId} loan={loan} />}
-
-        {/* ── TAB: Documents & History ── */}
-        {tab === "docs" && (
-          <div className="space-y-4">
-            {card(
-              "Documents",
+        {/* Row 5 — Communication History */}
+        <div ref={commHistoryRef} className="mt-4 scroll-mt-4">
+          <div className="card p-4">
+            <h4 className="mb-3 text-[13px] font-bold text-gray-800">Communication History</h4>
+            {feedLoading ? (
+              <p className="text-[12.5px] text-gray-400">Loading…</p>
+            ) : commRows.length === 0 ? (
+              <p className="text-[12.5px] text-gray-400">No communication logs recorded yet for this customer.</p>
+            ) : (
               <div className="overflow-hidden rounded-lg border border-gray-100">
                 <table className="w-full text-[12.5px]">
                   <thead>
                     <tr className="bg-surface text-left text-gray-500">
-                      <th className="px-3 py-1.5 font-semibold">Document Type</th>
-                      <th className="px-3 py-1.5 font-semibold">Action</th>
+                      <th className="px-3 py-1.5 font-semibold">Date</th>
+                      <th className="px-3 py-1.5 font-semibold">Type</th>
+                      <th className="px-3 py-1.5 font-semibold">Subject / Summary</th>
+                      <th className="px-3 py-1.5 font-semibold">Channel</th>
+                      <th className="px-3 py-1.5 font-semibold">Phone</th>
                     </tr>
                   </thead>
                   <tbody>
-                    <tr className="border-t border-gray-100">
-                      <td className="px-3 py-1.5 text-gray-700">Sanction Letter</td>
-                      <td className="px-3 py-1.5">
-                        <a
-                          className={docLink}
-                          href={`/api/docs/sanction?lead_id=${encodeURIComponent(loan.lead_id ?? leadId ?? "")}&doc_type=SANCTION_LETTER`}
-                          target="_blank"
-                          rel="noreferrer"
-                        >
-                          View
-                        </a>
-                      </td>
-                    </tr>
-                    <tr className="border-t border-gray-100">
-                      <td className="px-3 py-1.5 text-gray-700">Aadhaar Card</td>
-                      <td className="px-3 py-1.5">
-                        <a
-                          className={docLink}
-                          href={`/api/docs/aadhar?lead_id=${encodeURIComponent(loan.lead_id ?? leadId ?? "")}&doc_type=AADHAAR`}
-                          target="_blank"
-                          rel="noreferrer"
-                        >
-                          View
-                        </a>
-                      </td>
-                    </tr>
+                    {commRows.map((a, i) => (
+                      <tr key={i} className="border-t border-gray-100">
+                        <td className="px-3 py-1.5 text-gray-700">{ciDate(a.created_at || a.activity_date || a.timestamp)}</td>
+                        <td className="px-3 py-1.5 text-gray-700">{ciSafe(a.activity_type || a.type)}</td>
+                        <td className="px-3 py-1.5 text-gray-700">{ciSafe(a.description)}</td>
+                        <td className="px-3 py-1.5 text-gray-700">{commChannel(a)}</td>
+                        <td className="px-3 py-1.5 text-gray-700">{ciSafe(masked(loan.mobile))}</td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>
             )}
+          </div>
+        </div>
 
-            {card(
-              "Repayment history",
-              history.loading ? (
-                <p className="text-[12.5px] text-gray-400">Loading payment history…</p>
-              ) : history.error ? (
-                <p className="text-[12.5px] text-danger">Failed to load payment history.</p>
-              ) : history.rows.length === 0 ? (
-                <p className="text-[12.5px] text-gray-400">No repayment records found.</p>
-              ) : (
-                <div className="overflow-hidden rounded-lg border border-gray-100">
-                  <table className="w-full text-[12.5px]">
-                    <thead>
-                      <tr className="bg-surface text-left text-gray-500">
-                        <th className="px-3 py-1.5 font-semibold">Loan No</th>
-                        <th className="px-3 py-1.5 font-semibold">Amount</th>
-                        <th className="px-3 py-1.5 font-semibold">Date</th>
-                        <th className="px-3 py-1.5 font-semibold">Mode</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {history.rows.map((p, i) => {
-                        const sameLead = p.is_same_lead === true || p.is_same_lead === "true";
-                        return (
-                          <tr key={i} className={`border-t border-gray-100 ${sameLead ? "font-semibold text-[#1E7E5E]" : "text-gray-700"}`}>
-                            <td className="px-3 py-1.5">
-                              {p.loan_no ? (
-                                <Link href={`/client-info?lead_id=${encodeURIComponent(p.lead_id)}`} className={docLink}>
-                                  {p.loan_no}
-                                </Link>
-                              ) : (
-                                "--"
-                              )}
-                            </td>
-                            <td className="px-3 py-1.5">{ciInr(p.amount ?? 0)}</td>
-                            <td className="px-3 py-1.5">{ciDate(p.date)}</td>
-                            <td className="px-3 py-1.5">{ciSafe(p.mode)}</td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )
+        {/* Row 6 — Address (from GET /api/client/address) */}
+        <div className="mt-4">
+          <div className="card p-4">
+            <h4 className="mb-3 text-[13px] font-bold text-gray-800">Address</h4>
+            {addressData.length === 0 ? (
+              <p className="text-[12.5px] text-gray-400">No address found for PAN: {ciSafe(loan.pan)}</p>
+            ) : (
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {addressData.map((addr, i) => (
+                  <div key={i} className="rounded-lg border border-gray-100 p-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="badge border border-accent/40 bg-accent-light text-accent-dark">
+                        {ciSafe(addr.address_source, "Address")}
+                      </span>
+                    </div>
+                    <div className="mt-2 flex items-start gap-2 text-[12.5px] text-gray-700">
+                      <CiIcon name="pin" size={14} className="mt-0.5 shrink-0 text-gray-400" />
+                      <span>{ciSafe(addr.address)}</span>
+                    </div>
+                    <div className="mt-2 grid grid-cols-3 gap-2 border-t border-gray-100 pt-2 text-[11.5px] text-gray-500">
+                      <div>
+                        <div className="text-[10px] uppercase tracking-wide text-gray-400">City</div>
+                        <div className="font-semibold text-gray-700">{ciSafe(addr.city)}</div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] uppercase tracking-wide text-gray-400">State</div>
+                        <div className="font-semibold text-gray-700">{ciSafe(addr.state)}</div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] uppercase tracking-wide text-gray-400">Pincode</div>
+                        <div className="font-semibold text-gray-700">{ciSafe(addr.pincode)}</div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
-        )}
-
-        <div className="mt-4 text-center text-[10px] text-gray-400">
-          This is a system-generated summary from Collection CRM — for internal use only.
         </div>
+
+        {/* <div className="mt-4 text-center text-[10px] text-gray-400">
+          This is a system-generated summary from Collection CRM — for internal use only.
+        </div> */}
       </div>
 
       <BlockPanModal open={openModal === "blockPan"} onClose={() => setOpenModal(null)} pan={loan.pan} />
@@ -560,6 +930,23 @@ export default function OnePagerView({ leadId }) {
         redirectTo="/customer-one-pager"
       />
       <CollectionLogsModal open={openModal === "collectionLogs"} onClose={() => setOpenModal(null)} leadId={leadId} />
+      {openModal === "call" && <CallModal lead={callLead} agentEmail={username} onClose={() => setOpenModal(null)} />}
+      <WhatsAppChatModal
+        open={openModal === "whatsapp"}
+        onClose={() => setOpenModal(null)}
+        mobile={loan.mobile ?? ""}
+        name={loan.full_name ?? ""}
+      />
+      {openModal === "notes" && (
+        <AddNoteModal
+          author={agentName}
+          onClose={() => setOpenModal(null)}
+          onSave={(text) => setNotes((prev) => [{ text, author: agentName, at: new Date().toISOString() }, ...prev])}
+        />
+      )}
+      {pageSettings.showUpiReference && (
+        <UpiModal open={openModal === "upi"} onClose={() => setOpenModal(null)} mobileData={mobileData} pan={loan.pan} />
+      )}
     </div>
   );
 }

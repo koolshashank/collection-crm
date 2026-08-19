@@ -104,6 +104,11 @@ export default function PayLinkModal({ open, onClose, loan, leadId }) {
       await navigator.clipboard.writeText(resultLink || "");
       toast.success("Link copied!");
     } catch {}
+    postJson("/api/activity/log", {
+      action: "payment_link_copied",
+      entity: { type: "lead", id: leadId ?? loan.lead_id ?? null },
+      meta: { loan_no: loan.loan_no ?? null },
+    }).catch(() => {});
   }
 
   const radio = "h-[15px] w-[15px] accent-accent";

@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useToast } from "@/components/ui/Toast";
+import { postJson } from "@/lib/clientFetch";
 import { CiIcon } from "./icons";
 import { SectionCard, SubGroup, InfoField } from "./SectionCard";
 import { ciDate, ciInr, ciSafe } from "./helpers";
@@ -79,6 +80,11 @@ export default function LoanDetailsCard({ loan, showSalaryAlert }) {
       link.href = canvas.toDataURL("image/png");
       link.click();
       toast.success("Screenshot saved as " + fname);
+      postJson("/api/activity/log", {
+        action: "screenshot_captured",
+        entity: { type: "lead", id: loan.lead_id ?? null },
+        meta: { loan_no: loan.loan_no ?? null },
+      }).catch(() => {});
     } catch (err) {
       console.error("html2canvas error:", err);
       toast.error("Screenshot failed. Try again.");

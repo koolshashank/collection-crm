@@ -9,9 +9,15 @@ import { useToast } from "@/components/ui/Toast";
  * Posts multipart form-data (field `bulkFile`) to /api/assign/bulk
  * (proxy for bulkAssignProcess.php).
  */
-export default function BulkUploadPanel({ onUploaded }) {
+export default function BulkUploadPanel({ onUploaded, open: openProp, onToggle }) {
   const { success, error } = useToast();
-  const [open, setOpen] = useState(false);
+  const [openState, setOpenState] = useState(false);
+  const isControlled = openProp !== undefined;
+  const open = isControlled ? openProp : openState;
+  function toggleOpen() {
+    if (isControlled) onToggle?.(!open);
+    else setOpenState((o) => !o);
+  }
   const [file, setFile] = useState(null);
   const [dragover, setDragover] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -80,7 +86,7 @@ export default function BulkUploadPanel({ onUploaded }) {
       {/* Toggle head */}
       <button
         type="button"
-        onClick={() => setOpen((o) => !o)}
+        onClick={toggleOpen}
         className="flex w-full items-center justify-between px-5 py-3.5 text-left transition hover:bg-accent-light/40"
       >
         <div className="flex items-center gap-3">

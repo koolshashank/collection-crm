@@ -2,5 +2,6 @@
     "enabled": true,
     "recipients": [
         "shashank.srivastava@blinkrloan.com"
-    ]
+    ],
+    "sender": "info@blinkrloan.com"
 }

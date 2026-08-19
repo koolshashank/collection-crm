@@ -12,6 +12,7 @@ import RequestsTable from "@/components/settlement/RequestsTable";
 import RaiseRequestModal from "@/components/settlement/RaiseRequestModal";
 import ApproveRejectModal from "@/components/settlement/ApproveRejectModal";
 import LetterModal from "@/components/settlement/LetterModal";
+import NdcModal from "@/components/settlement/NdcModal";
 import DetailModal from "@/components/settlement/DetailModal";
 import { fetchSettlements } from "@/lib/settlementMock";
 
@@ -52,6 +53,7 @@ export default function SettlementPage() {
   const [raiseOpen, setRaiseOpen] = useState(false);
   const [reviewRow, setReviewRow] = useState(null);
   const [letterRow, setLetterRow] = useState(null);
+  const [ndcRow, setNdcRow] = useState(null);
   const [detailRow, setDetailRow] = useState(null);
 
   const load = async () => {
@@ -124,6 +126,10 @@ export default function SettlementPage() {
   const handleSent = () => {
     load();
     setLetterRow(null);
+  };
+  const handleNdcSent = () => {
+    load();
+    setNdcRow(null);
   };
 
   if (me.loading) return <PageLoader label="Loading settlement…" />;
@@ -247,7 +253,7 @@ export default function SettlementPage() {
                   activePill={approvedPill}
                   onPill={setApprovedPill}
                 />
-                <RequestsTable variant="approved" rows={approvedFiltered} onSendLetter={setLetterRow} onView={setDetailRow} />
+                <RequestsTable variant="approved" rows={approvedFiltered} onSendLetter={setLetterRow} onSendNdc={setNdcRow} onView={setDetailRow} />
               </div>
             )}
 
@@ -283,6 +289,7 @@ export default function SettlementPage() {
       <RaiseRequestModal open={raiseOpen} onClose={() => setRaiseOpen(false)} onCreated={handleCreated} currentUser={currentUser} />
       <ApproveRejectModal open={!!reviewRow} row={reviewRow} onClose={() => setReviewRow(null)} onDecided={handleDecided} currentUser={currentUser} />
       <LetterModal open={!!letterRow} row={letterRow} onClose={() => setLetterRow(null)} onSent={handleSent} />
+      <NdcModal open={!!ndcRow} row={ndcRow} onClose={() => setNdcRow(null)} onSent={handleNdcSent} />
       <DetailModal open={!!detailRow} row={detailRow} onClose={() => setDetailRow(null)} />
     </div>
   );

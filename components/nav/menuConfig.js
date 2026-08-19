@@ -79,6 +79,7 @@ export const MENU_SECTIONS = [
       { menuKey: "company_setup", label: "Company Setup", href: "/company-setup", icon: "image", roles: ["ADMIN"] },
       { menuKey: "upload_festival", label: "Festival Media", href: "/upload-festival", icon: "image", roles: ["ADMIN"] },
       { menuKey: "menu_manager", label: "Role Permissions", href: "/role-permissions", icon: "sliders", roles: ["ADMIN"] },
+      { menuKey: "two_factor_admin", label: "2FA Admin", href: "/two-factor-admin", icon: "shield-check", roles: ["ADMIN"] },
     ],
   },
 ];
